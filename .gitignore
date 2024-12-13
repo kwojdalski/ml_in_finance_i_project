@@ -4,10 +4,15 @@ data/
 __pycache__/
 *.py[cod]
 *$py.class
+poetry.lock
+*/.DS_Store
+*/.gitkeep
 
 # C extensions
 *.so
 
+# Google drive
+.tmp.drive*
 # Distribution / packaging
 .Python
 build/

@@ -1,0 +1,139 @@
+# Parameters for Kedro data processing pipeline
+
+# Raw Data Parameters
+raw_data:
+  x_train_cols: 
+  - RET_1
+  - RET_2
+  - RET_3
+  - RET_4
+  - RET_5
+  - RET_6
+  - RET_7
+  - RET_8
+  - RET_9
+  - RET_10
+  - RET_11
+  - RET_12
+  - RET_13
+  - RET_14
+  - RET_15
+  - RET_16
+  - RET_17
+  - RET_18
+  - RET_19
+  - RET_20
+  - VOLUME_1
+  - VOLUME_2
+  - VOLUME_3
+  - VOLUME_4
+  - VOLUME_5
+  - VOLUME_6
+  - VOLUME_7
+  - VOLUME_8
+  - VOLUME_9
+  - VOLUME_10
+  - VOLUME_11
+  - VOLUME_12
+  - VOLUME_13
+  - VOLUME_14
+  - VOLUME_15
+  - VOLUME_16
+  - VOLUME_17
+  - VOLUME_18
+  - VOLUME_19
+  - VOLUME_20
+  - DATE
+  - STOCK
+  - INDUSTRY
+  - INDUSTRY_GROUP
+  - SUB_INDUSTRY
+  - SECTOR
+  y_train_cols: ["RET"]
+  id_cols: ["ID", "STOCK", "DATE", "INDUSTRY", "INDUSTRY_GROUP", "SECTOR", "SUB_INDUSTRY"]
+
+remove_id_cols: false
+
+# Feature Processing Node Parameters
+feature_processing:
+  dropna_threshold: 0.95
+  fill_method: "ffill"
+  scaling_method: "standard"
+  train_test_split:
+    test_size: 0.2
+    random_state: 42
+
+# Model Input Preparation Node Parameters
+model_input:
+  feature_selection:
+    correlation_threshold: 0.95
+  target_column: "target"
+  features_to_exclude: ["Date", "Return"]
+  time_features:
+    add_time_features: true
+    features: ["month", "day", "dayofweek"]
+target:
+  - RET
+features:
+  - RET_1
+  - RET_2
+  - RET_3
+  - RET_4
+  - RET_5
+  - RET_6
+  - RET_7
+  - RET_8
+  - RET_9
+  - RET_10
+  - RET_11
+  - RET_12
+  - RET_13
+  - RET_14
+  - RET_15
+  - RET_16
+  - RET_17
+  - RET_18
+  - RET_19
+  - RET_20
+statistics_features:
+  - RET_1_INDUSTRY_median
+  - RET_1_INDUSTRY_std
+  - RET_2_INDUSTRY_median
+  - RET_2_INDUSTRY_std
+  - RET_3_INDUSTRY_median
+  - RET_3_INDUSTRY_std
+  - RET_4_INDUSTRY_median
+  - RET_4_INDUSTRY_std
+  - RET_5_INDUSTRY_median
+  - RET_5_INDUSTRY_std
+  - RET_1_INDUSTRY_GROUP_median
+  - RET_1_INDUSTRY_GROUP_std
+  - RET_2_INDUSTRY_GROUP_median
+  - RET_2_INDUSTRY_GROUP_std
+  - RET_3_INDUSTRY_GROUP_median
+  - RET_3_INDUSTRY_GROUP_std
+  - RET_4_INDUSTRY_GROUP_median
+  - RET_4_INDUSTRY_GROUP_std
+  - RET_5_INDUSTRY_GROUP_median
+  - RET_5_INDUSTRY_GROUP_std
+  - RET_1_SECTOR_median
+  - RET_1_SECTOR_std
+  - RET_2_SECTOR_median
+  - RET_2_SECTOR_std
+  - RET_3_SECTOR_median
+  - RET_3_SECTOR_std
+  - RET_4_SECTOR_median
+  - RET_4_SECTOR_std
+  - RET_5_SECTOR_median
+  - RET_5_SECTOR_std
+  - RET_1_SUB_INDUSTRY_median
+  - RET_1_SUB_INDUSTRY_std
+  - RET_2_SUB_INDUSTRY_median
+  - RET_2_SUB_INDUSTRY_std
+  - RET_3_SUB_INDUSTRY_median
+  - RET_3_SUB_INDUSTRY_std
+  - RET_4_SUB_INDUSTRY_median
+  - RET_4_SUB_INDUSTRY_std
+  - RET_5_SUB_INDUSTRY_median
+  - RET_5_SUB_INDUSTRY_std
+
