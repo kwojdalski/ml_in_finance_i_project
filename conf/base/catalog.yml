@@ -1,0 +1,220 @@
+# Here you can define all your data sets by using simple YAML syntax.
+#
+# Documentation for this file format can be found in "The Data Catalog"
+# Link: https://docs.kedro.org/en/stable/data/data_catalog.html
+#
+# We support interacting with a variety of data stores including local file systems, cloud, network and HDFS
+#
+# An example data set definition can look as follows:
+#
+#bikes:
+#  type: pandas.CSVDataset
+#  filepath: "data/01_raw/bikes.csv"
+#
+#weather:
+#  type: spark.SparkDataset
+#  filepath: s3a://your_bucket/data/01_raw/weather*
+#  file_format: csv
+#  credentials: dev_s3
+#  load_args:
+#    header: True
+#    inferSchema: True
+#  save_args:
+#    sep: '|'
+#    header: True
+#
+#scooters:
+#  type: pandas.SQLTableDataset
+#  credentials: scooters_credentials
+#  table_name: scooters
+#  load_args:
+#    index_col: ['name']
+#    columns: ['name', 'gear']
+#  save_args:
+#    if_exists: 'replace'
+#    # if_exists: 'fail'
+#    # if_exists: 'append'
+#
+# The Data Catalog supports being able to reference the same file using two different Dataset implementations
+# (transcoding), templating and a way to reuse arguments that are frequently repeated. See more here:
+# https://docs.kedro.org/en/stable/data/data_catalog.html
+
+x_train_raw:
+  filepath: data/01_raw/x_train.csv
+  type: pandas.CSVDataset
+  save_args:
+    mode: overwrite
+
+y_train_raw:
+  filepath: data/01_raw/y_train.csv
+  type: pandas.CSVDataset
+  save_args:
+    mode: overwrite
+
+x_test_raw:
+  filepath: data/01_raw/x_test.csv
+  type: pandas.CSVDataset
+  save_args:
+    mode: overwrite
+
+train_df:
+  filepath: data/01_raw/train_df.pkl
+  type: pickle.PickleDataset
+
+train_df_dropped:
+  filepath: data/02_intermediate/train_df_dropped.pkl
+  type: pickle.PickleDataset
+
+test_df_dropped:
+  filepath: data/02_intermediate/test_df_dropped.pkl
+  type: pickle.PickleDataset
+
+test_df:
+  filepath: data/01_raw/test_df.pkl
+  type: pickle.PickleDataset
+
+train_df_preprocessed:
+  filepath: data/02_intermediate/train_df_preprocessed.pkl
+  type: pickle.PickleDataset
+
+test_df_preprocessed:
+  filepath: data/02_intermediate/test_df_preprocessed.pkl
+  type: pickle.PickleDataset
+
+benchmark_qrt:
+  filepath: data/01_raw/benchmark_qrt.csv
+  type: pandas.CSVDataset
+  save_args:
+    mode: overwrite
+
+train_ta_indicators:
+  filepath: data/04_feature/train_ta_indicators.pkl
+  type: pickle.PickleDataset
+
+test_ta_indicators:
+  filepath: data/04_feature/test_ta_indicators.pkl
+  type: pickle.PickleDataset
+
+train_df_technical_indicators:
+  filepath: data/04_feature/train_df_technical_indicators.pkl
+  type: pickle.PickleDataset
+
+test_df_technical_indicators:
+  filepath: data/04_feature/test_df_technical_indicators.pkl
+  type: pickle.PickleDataset
+
+train_df_rm_duplicates:
+  filepath: data/04_feature/train_df_rm_duplicates.pkl
+  type: pickle.PickleDataset
+
+test_df_rm_duplicates:
+  filepath: data/04_feature/test_df_rm_duplicates.pkl
+  type: pickle.PickleDataset
+
+X_train:
+  filepath: data/05_model_input/X_train.pkl
+  type: pickle.PickleDataset
+
+X_test:
+  filepath: data/05_intermediate/X_test.pkl
+  type: pickle.PickleDataset
+
+y_train:
+  filepath: data/05_model_input/y_train.pkl
+  type: pickle.PickleDataset
+
+y_test:
+  filepath: data/05_model_input/y_test.pkl
+  type: pickle.PickleDataset
+
+train_df_processed:
+  filepath: data/05_model_input/processed_train_df.pkl
+  type: pickle.PickleDataset
+
+test_df_processed:
+  filepath: data/05_model_input/processed_test_df.pkl
+  type: pickle.PickleDataset
+
+model_test_df:
+  filepath: data/05_model_input/processed_test_df.pkl
+  type: pickle.PickleDataset
+  load_args:
+    header: True
+    inferSchema: True
+  save_args:
+    mode: overwrite
+
+model_train_df:
+  filepath: data/05_model_input/processed_train_df.pkl
+  type: pickle.PickleDataset
+  load_args:
+    header: True
+    inferSchema: True
+  save_args:
+    mode: overwrite
+
+feature_importance_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/feature_importance.json
+  versioned: true
+
+returns_volume_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/returns_volume.json
+  versioned: true
+
+strategy_simulation_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/strategy_simulation.json
+  versioned: true
+
+decision_tree_model:
+  filepath: data/06_models/decision_tree_model.pkl
+  type: pickle.PickleDataset
+
+gradient_boosting_model:
+  filepath: data/06_models/gradient_boosting_model.pkl 
+  type: pickle.PickleDataset
+
+model_metrics:
+  filepath: data/08_reporting/model_metrics.json
+  type: json.JSONDataset
+
+model_predictions:
+  filepath: data/07_model_output/predictions.csv
+  type: pandas.CSVDataset
+
+model_feature_importance:
+  filepath: data/08_reporting/feature_importance.csv
+  type: pandas.CSVDataset
+
+model_performance_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/model_performance.json
+  versioned: true
+
+roc_curve_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/roc_curve.json
+  versioned: true
+  
+correlation_matrix_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/correlation_matrix.json
+  save_args:
+    engine: auto
+
+na_percentages_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/na_percentages.json
+  versioned: true
+
+na_distribution_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/na_distribution.json
+  versioned: true
+
+model_accuracy_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/model_accuracy.json
+  versioned: true

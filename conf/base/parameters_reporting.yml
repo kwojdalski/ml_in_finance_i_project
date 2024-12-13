@@ -1,0 +1,11 @@
+# Parameters for reporting pipeline
+
+# Feature importance threshold for visualization
+feature_importance_threshold: 0.05
+
+# Example row ID for returns/volume plot
+example_row_id: 5
+
+# Strategy simulation parameters
+n_simulations: 1000
+n_days: 100
