@@ -145,3 +145,22 @@ model_train_df:
     inferSchema: True
   save_args:
     mode: overwrite
+
+feature_importance_plot:
+  type: plotly.PlotlyDataset
+  filepath: data/08_reporting/feature_importance.html
+  plotly_args:
+    html_frame: true
+
+returns_volume_plot:
+  type: plotly.PlotlyDataset 
+  filepath: data/08_reporting/returns_volume.html
+  plotly_args:
+    html_frame: true
+
+strategy_simulation_plot:
+  type: plotly.PlotlyDataset
+  filepath: data/08_reporting/strategy_simulation.html
+  plotly_args:
+    html_frame: true
+

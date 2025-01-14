@@ -22,12 +22,14 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=["x_train_raw", "y_train_raw", "x_test_raw"],
                 outputs=["train_df", "test_df"],
                 name="load_data_node",
+                tags=["data_loading"],
             ),
             node(
                 func=drop_missing_returns,
                 inputs=["train_df"],
                 outputs="train_df_dropped",
                 name="drop_missing_returns_node",
+                tags=["data_cleaning"],
             ),
             node(
                 func=preprocess_data,
@@ -38,6 +40,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 ],
                 outputs=["train_df_preprocessed", "test_df_preprocessed"],
                 name="preprocess_data_node",
+                tags=["data_preprocessing"],
             ),
             node(
                 func=calculate_statistical_features,
@@ -48,6 +51,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "statistical_features",
                 ],
                 name="calculate_statistical_features_node",
+                tags=["feature_engineering"],
             ),
             node(
                 func=calculate_technical_indicators,
@@ -60,12 +64,14 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "test_ta_indicators",
                 ],
                 name="calculate_technical_indicators_node",
+                tags=["feature_engineering"],
             ),
             node(
                 func=drop_id_cols,
                 inputs=["train_ta_indicators", "test_ta_indicators"],
                 outputs=["train_ta_indicators_dropped", "test_ta_indicators_dropped"],
                 name="drop_id_cols_node",
+                tags=["data_cleaning"],
             ),
             node(
                 func=drop_obsolete_technical_indicators,
@@ -78,6 +84,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "test_df_technical_indicators",
                 ],
                 name="drop_obsolete_technical_indicators_node",
+                tags=["data_cleaning"],
             ),
             node(
                 func=filter_infinity_values,
@@ -89,18 +96,21 @@ def create_pipeline(**kwargs) -> Pipeline:
                 ],
                 outputs=["train_df_filtered", "test_df_filtered"],
                 name="filter_infinity_values_node",
+                tags=["data_cleaning"],
             ),
             node(
                 func=remove_duplicated_columns,
                 inputs=["train_df_filtered", "test_df_filtered", "params:features"],
                 outputs=["train_df_rm_duplicates", "test_df_rm_duplicates"],
                 name="remove_duplicated_columns_node",
+                tags=["data_cleaning"],
             ),
             node(
                 func=split_data,
                 inputs=["train_df_rm_duplicates", "params:model_options"],
                 outputs=["X_train", "X_test", "y_train", "y_test"],
                 name="split_data_node",
+                tags=["data_splitting"],
             ),
         ]
     )
