@@ -3,7 +3,7 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from src.ta_indicators import (
+from ml_in_finance_i_project.ta_indicators import (
     calculate_bollinger_bands,
     calculate_cumulative_returns,
     calculate_momentum,
