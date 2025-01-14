@@ -154,8 +154,6 @@ from kedro.framework.session import KedroSession
 from sklearn import tree
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import GridSearchCV, train_test_split
-from sklearn.preprocessing import StandardScaler
-from torch import nn
 
 from src.GBClassifierGridSearch import HistGBClassifierGridSearch
 from src.ml_in_finance_i_project.pipelines.reporting.nodes import (
@@ -164,7 +162,6 @@ from src.ml_in_finance_i_project.pipelines.reporting.nodes import (
     simulate_strategy,
 )
 from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
-from src.nn import Net
 
 
 def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict) -> dict:
@@ -375,7 +372,7 @@ out_corr = run_pipeline_node(
     "plot_correlation_matrix_node",
     {"train_df": out3["train_df_preprocessed"]},
 )
-out_corr
+out_corr["correlation_matrix_plot"]
 # %% [markdown]
 # ## Feature Engineering - Technical Indicators using TA-Lib
 # In this part, we calculate the technical indicators for the train and test data.
@@ -415,7 +412,7 @@ with warnings.catch_warnings():
 # %% [markdown]
 # ### Calculate technical indicators
 # %%
-calculate = True
+calculate = False
 
 if calculate:
     out5 = run_pipeline_node(
@@ -457,22 +454,25 @@ out6 = run_pipeline_node(
 # Assumption is that probably some technical indicators are not useful for the prediction.
 # For instance SMA(10), SMA(11) etc. dont give any information in the context of RET.
 # It's an arbitrary choice, but we want to keep the number of features low
-
+# %%
 out7 = run_pipeline_node(
     "data_processing",
-    "drop_technical_indicators_node",
+    "drop_obsolete_technical_indicators_node",
     {
         "train_ta_indicators_dropped": out6["train_ta_indicators_dropped"],
+        "test_ta_indicators_dropped": out6["test_ta_indicators_dropped"],
         "params:target": conf_params["model_options"]["target"],
     },
 )
 # %% Filter out infinity values
 out8 = run_pipeline_node(
     "data_processing",
-    "drop_infinity_values_node",
+    "filter_infinity_values_node",
     {
         "train_df_technical_indicators": out7["train_df_technical_indicators"],
         "test_df_technical_indicators": out7["test_df_technical_indicators"],
+        "params:features": conf_params["features_ret_vol"],
+        "params:target": conf_params["model_options"]["target"],
     },
 )
 
@@ -480,10 +480,11 @@ out8 = run_pipeline_node(
 # Remove duplicated columns
 out9 = run_pipeline_node(
     "data_processing",
-    "drop_duplicated_columns_node",
+    "remove_duplicated_columns_node",
     {
-        "train_df_rm_duplicates": out8["train_df_rm_duplicates"],
-        "test_df_rm_duplicates": out8["test_df_rm_duplicates"],
+        "train_df_filtered": out8["train_df_filtered"],
+        "test_df_filtered": out8["test_df_filtered"],
+        "params:features": conf_params["features_ret_vol"],
     },
 )
 
@@ -502,7 +503,7 @@ out10 = run_pipeline_node(
     "split_data_node",
     {
         "train_df_rm_duplicates": out9["train_df_rm_duplicates"],
-        "test_df_rm_duplicates": out9["test_df_rm_duplicates"],
+        "params:model_options": conf_params["model_options"],
     },
 )
 
@@ -762,45 +763,13 @@ model_fit(
 # * 50 neurons in the fourth layer (ReLU)
 # * 35 neurons in the fifth layer (Sigmoid)
 
+# %% [markdown]
+# %% Neural Network
 # %%
 # Preparing standardization and normalization
-scaler = StandardScaler()
-scaler.fit(x_train[features])
-X_train = scaler.fit_transform(x_train[features])
-scaler.fit(x_test[features])
-X_test = scaler.fit_transform(x_test[features])
-nn_model = Net(len(features))
-criterion = nn.BCELoss()
-optimizer = torch.optim.Adam(nn_model.parameters())
-
-# Convert data to tensors
-X_train_tensor = torch.FloatTensor(X_train)
-y_train_tensor = torch.FloatTensor(y_train.values).reshape(-1, 1)
 X_test_tensor = torch.FloatTensor(X_test)
 Y_test_tensor = torch.FloatTensor(y_test.values).reshape(-1, 1)
-
-train_neural_network(train_df, parameters)
-# %% [markdown]
-# Training part
-
-# %%
-n_epochs = 250
-batch_size = 5000
-
-for epoch in range(n_epochs):
-    for i in range(0, len(train_df), batch_size):
-        batch_X = X_train_tensor[i : i + batch_size]
-        batch_y = y_train_tensor[i : i + batch_size]
-
-        # Forward pass
-        outputs = nn_model(batch_X)
-        loss = criterion(outputs, batch_y.view(-1, 1))
-
-        # Backward pass and optimization
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
+nn_model = train_neural_network(train_df, parameters)
 
 # Evaluate the model
 nn_model.eval()

@@ -167,12 +167,13 @@ def drop_id_cols(
 
 
 def drop_obsolete_technical_indicators(
-    train_df: pd.DataFrame, target: str
-) -> tuple[pd.DataFrame, list[str]]:
+    train_df: pd.DataFrame, test_df: pd.DataFrame, target: str
+) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     """Drop technical indicators that are not useful for prediction.
 
     Args:
         train_df: Training dataframe
+        test_df: Test dataframe
         target: Target column name
 
     Returns:
@@ -199,7 +200,7 @@ def drop_obsolete_technical_indicators(
     # Get remaining features
     features = [col for col in train_df.columns if col != target]
 
-    return train_df, features
+    return train_df, test_df, features
 
 
 def remove_duplicated_columns(
