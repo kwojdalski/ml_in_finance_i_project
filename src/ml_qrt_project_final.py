@@ -474,6 +474,14 @@ out10 = (
     )
 )
 
+
+# %%
+x_train = out10["X_train"]
+x_test = out10["X_test"]
+y_train = out10["y_train"]
+y_test = out10["y_test"]
+
+
 # %%
 # Decison tree baseline model
 base_dt = tree.DecisionTreeClassifier()
