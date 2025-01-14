@@ -464,6 +464,7 @@ out7 = run_pipeline_node(
         "params:target": conf_params["model_options"]["target"],
     },
 )
+
 # %% Filter out infinity values
 out8 = run_pipeline_node(
     "data_processing",
@@ -471,10 +472,10 @@ out8 = run_pipeline_node(
     {
         "train_df_technical_indicators": out7["train_df_technical_indicators"],
         "test_df_technical_indicators": out7["test_df_technical_indicators"],
-        "params:features": conf_params["features_ret_vol"],
         "params:target": conf_params["model_options"]["target"],
     },
 )
+
 
 # %%
 # Remove duplicated columns
@@ -484,7 +485,6 @@ out9 = run_pipeline_node(
     {
         "train_df_filtered": out8["train_df_filtered"],
         "test_df_filtered": out8["test_df_filtered"],
-        "params:features": conf_params["features_ret_vol"],
     },
 )
 
@@ -506,14 +506,26 @@ out10 = run_pipeline_node(
         "params:model_options": conf_params["model_options"],
     },
 )
+out10
 
-
+# %%
+out10 = get_node_outputs(
+    pipelines["data_processing"].nodes[
+        get_node_idx(pipelines["data_processing"], "split_data_node")
+    ],
+    catalog,
+)
+# %%
+# out10["X_train"].to_pickle("data/05_model_input/x_train.pkl")
+# out10["X_test"].to_pickle("data/05_model_input/x_test.pkl")
+# out10["y_train"].to_pickle("data/05_model_input/y_train.pkl")
+# out10["y_test"].to_pickle("data/05_model_input/y_test.pkl")
 # %%
 x_train = out10["X_train"]
 x_test = out10["X_test"]
 y_train = out10["y_train"]
 y_test = out10["y_test"]
-
+x_train
 
 # %%
 # Decison tree baseline model

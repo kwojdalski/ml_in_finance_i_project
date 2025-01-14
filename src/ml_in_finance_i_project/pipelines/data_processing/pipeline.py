@@ -94,7 +94,6 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=[
                     "train_df_technical_indicators",
                     "test_df_technical_indicators",
-                    "params:features",
                     "params:target",
                 ],
                 outputs=[
@@ -110,7 +109,6 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=[
                     "train_df_filtered",
                     "test_df_filtered",
-                    "params:features",
                 ],
                 outputs=[
                     "train_df_rm_duplicates",

@@ -204,7 +204,7 @@ def drop_obsolete_technical_indicators(
 
 
 def remove_duplicated_columns(
-    train_df: pd.DataFrame, test_df: pd.DataFrame, features: list[str]
+    train_df: pd.DataFrame, test_df: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     """
     Remove duplicated columns from train and test datasets.
@@ -212,7 +212,6 @@ def remove_duplicated_columns(
     Args:
         train_df: Training DataFrame
         test_df: Test DataFrame
-        features: List of feature names
 
     Returns:
         Tuple containing:
@@ -220,30 +219,26 @@ def remove_duplicated_columns(
         - Filtered test DataFrame
         - Updated features list with duplicates removed
     """
-    # Find duplicated column names in train dataset
-    duplicated_cols = []
-    feature_names = set()
-    for feature in features:
-        if feature in feature_names:
-            duplicated_cols.append(feature)
-        else:
-            feature_names.add(feature)
+    # Find duplicated features using set operations
+    # Find duplicates in train dataset
+    train_duplicates = train_df.columns[train_df.columns.duplicated()].tolist()
 
-    # Remove duplicated columns
-    if duplicated_cols:
-        # Only drop duplicated columns that exist in each df
-        train_duplicates = [col for col in duplicated_cols if col in train_df.columns]
-        test_duplicates = [col for col in duplicated_cols if col in test_df.columns]
-        filtered_features = [col for col in features if col not in duplicated_cols]
-        train_filtered = train_df.drop(columns=train_duplicates)
-        test_filtered = test_df.drop(columns=test_duplicates)
-        return train_filtered, test_filtered, filtered_features
+    # Find duplicates in test dataset
+    test_duplicates = test_df.columns[test_df.columns.duplicated()].tolist()
+    duplicated_cols = list(set(train_duplicates) | set(test_duplicates))
+    # If no duplicates found, return original data
+    if not duplicated_cols:
+        return train_df, test_df, []
 
-    return train_df, test_df, features
+    # Remove duplicated columns from train and test dataframes
+    train_filtered = train_df.loc[:, ~train_df.columns.duplicated()]
+    test_filtered = test_df.loc[:, ~test_df.columns.duplicated()]
+
+    return train_filtered, test_filtered, duplicated_cols
 
 
 def filter_infinity_values(
-    train: pd.DataFrame, test: pd.DataFrame, features: list[str], target: str
+    train: pd.DataFrame, test: pd.DataFrame, target: str
 ) -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
     """
     Check for infinity values in train and test datasets and filter out features containing infinities.
@@ -258,24 +253,18 @@ def filter_infinity_values(
         Tuple[pd.DataFrame, pd.DataFrame]: Filtered train and test DataFrames with infinity values removed
     """
     # Check for infinity values in the train dataset
-    inf_counts_train = np.isinf(train).sum()
-    inf_columns_train = inf_counts_train[inf_counts_train > 0]
-    inf_columns_train_list = inf_columns_train.index.tolist()
+    cols = list(set(train.columns) | set(test.columns))
 
-    # Check for infinity values in the test dataset
-    inf_counts_test = np.isinf(test).sum()
-    inf_columns_test = inf_counts_test[inf_counts_test > 0]
-    inf_columns_test_list = inf_columns_test.index.tolist()
+    # Get columns with infinity values in train dataset
+    def _get_infinity_columns(df: pd.DataFrame) -> pd.Index:
+        return df.columns[df.isin([np.inf, -np.inf]).any()]
 
-    # Combine the lists for further use if needed
-    inf_columns_combined_list = list(
-        set(inf_columns_train_list + inf_columns_test_list)
-    )
+    inf_cols_train = _get_infinity_columns(train)
+    inf_cols_test = _get_infinity_columns(test)
+    inf_columns_combined_list = list(set(inf_cols_train) | set(inf_cols_test))
 
     # Filter out features containing infinities from train and test
-    filtered_features = [
-        col for col in features if col not in inf_columns_combined_list
-    ]
+    filtered_features = [col for col in cols if col not in inf_columns_combined_list]
     log.debug(f"Features after filtering infinities: {filtered_features + [target]}")
     # Filter to only include columns that exist in both dataframes
     train_available_features = [f for f in filtered_features if f in train.columns]
