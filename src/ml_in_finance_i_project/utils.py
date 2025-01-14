@@ -5,30 +5,11 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from plotnine import (
-    aes,
-    annotate,
-    coord_cartesian,
-    coord_equal,
-    coord_flip,
-    element_text,
-    facet_wrap,
-    geom_bar,
-    geom_hline,
-    geom_line,
-    geom_tile,
-    ggplot,
-    labs,
-    scale_color_manual,
-    scale_fill_gradient2,
-    scale_x_continuous,
-    theme,
-)
+from plotnine import aes, coord_flip, geom_bar, geom_hline, ggplot, labs, theme
 from scipy.stats import kurtosis, skew
 from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.metrics import accuracy_score, auc, confusion_matrix, roc_curve
 from sklearn.model_selection import cross_val_score
-from sklearn.preprocessing import LabelEncoder
 
 kfold = 2
 ID_COLS = [
@@ -237,78 +218,6 @@ def drop_missing_returns(train_df: pd.DataFrame, n_days: int = 5) -> pd.DataFram
     return train_df[missing_prop < 1].copy()
 
 
-def preprocess_data(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    remove_id_cols: bool = True,
-    sample_n: int | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    # Clean data
-    n_before = len(train_df)
-    train_df = train_df.dropna()
-    n_after = len(train_df)
-    log.debug(f"Dropped {n_before - n_after} rows with NA values from train_df")
-
-    if remove_id_cols:
-        train_df = train_df.drop(ID_COLS, axis=1)
-        log.debug(f"Dropped ID columns {ID_COLS} from train_df")
-
-    n_before = len(test_df)
-    test_df = test_df.dropna()
-    n_after = len(test_df)
-    log.debug(f"Dropped {n_before - n_after} rows with NA values from test_df")
-
-    if remove_id_cols:
-        test_df = test_df.drop(ID_COLS, axis=1)
-        log.debug(f"Dropped ID columns {ID_COLS} from test_df")
-
-    # Convert target to binary
-    sign_of_return: LabelEncoder = LabelEncoder()
-    train_df["RET"] = sign_of_return.fit_transform(train_df["RET"])
-
-    # Sample training data if sample_n is provided
-    if sample_n is not None:
-        train_df = train_df.sample(n=sample_n, random_state=42)
-        log.debug(f"Sampled {sample_n} rows from train_df")
-
-    return train_df, test_df
-
-
-def plot_nan_percentages(cleaned_train: pd.DataFrame) -> ggplot:
-    # Create a list of categories to analyze
-
-    # Calculate NaN percentages for each category and subcategory
-    plot_df = pd.concat(
-        [
-            cleaned_train.groupby(category).apply(
-                lambda x: pd.Series(
-                    {
-                        "Category": category,
-                        "Subcategory": x.name,
-                        "NaN_Percentage": (x.isna().any(axis=1).sum() / len(x) * 100),
-                    }
-                )
-            )
-            for category in CAT_COLS
-        ]
-    ).reset_index(drop=True)
-
-    # Create plot
-    p = (
-        ggplot(plot_df, aes(x="Subcategory", y="NaN_Percentage", fill="Category"))
-        + geom_bar(stat="identity")
-        + facet_wrap("~Category", scales="free_x", ncol=2)
-        + theme(
-            figure_size=(15, 10),
-            axis_text_x=element_text(rotation=90),
-            subplots_adjust={"hspace": 0.5},
-        )
-        + labs(x="Sub-category", y="Percentage (%)")
-    )
-
-    return p
-
-
 def calculate_statistics(data: pd.DataFrame) -> pd.Series:
     """Calculate statistical measures for RET_1 and VOLUME_1 columns."""
     stats: dict[str, float] = {}
@@ -347,312 +256,144 @@ def calculate_statistics(data: pd.DataFrame) -> pd.Series:
     return pd.Series(stats)
 
 
-def plot_sector_industry_stats(
-    sector_stats: pd.DataFrame, industry_stats: pd.DataFrame
-) -> None:
-    """Plot sector and industry statistics using plotnine.
-
-    Args:
-        sector_stats: DataFrame containing sector statistics
-        industry_stats: DataFrame containing industry statistics
-    """
-
-    # Helper function to create plot for a group of metrics
-    def create_stats_plot(
-        data: pd.DataFrame, group_col: str, metrics: list[str]
-    ) -> None:
-        # Melt the dataframe to get metrics in long format
-        plot_data = data.melt(
-            id_vars=[group_col],
-            value_vars=metrics,
-            var_name="Metric",
-            value_name="Value",
-        )
-
-        # Create plot
-        p = (
-            ggplot(plot_data, aes(x=group_col, y="Value", fill=group_col))
-            + geom_bar(stat="identity")
-            + facet_wrap("~Metric", scales="free_y", ncol=5)
-            + theme(
-                figure_size=(25, 10),
-                axis_text_x=element_text(rotation=90),
-                subplots_adjust={"hspace": 0.5, "wspace": 0.3},
-            )
-            + labs(x=group_col, y="Value")
-        )
-        print(p)
-
-    # Define metrics to plot
-    base_metrics = [
-        "Mean_RET_1",
-        "Skewness_RET_1",
-        "Kurtosis_RET_1",
-        "Std_RET_1",
-    ]
-    # log_metrics = [
-    #     "Log_Mean_RET_1",
-    #     "Log_Skewness_RET_1",
-    #     "Log_Kurtosis_RET_1",
-    #     "Log_Std_RET_1",
-    # ]
-
-    # Plot sector statistics
-    create_stats_plot(sector_stats, "SECTOR", base_metrics)
-    # create_stats_plot(sector_stats, "SECTOR", log_metrics)
-
-    # Plot industry statistics
-    create_stats_plot(industry_stats, "INDUSTRY", base_metrics)
-    # create_stats_plot(industry_stats, "INDUSTRY", log_metrics)
-
-
-def plot_na(train_df):
-    na_counts = train_df.isna().sum()
-    na_percentages = (na_counts / len(train_df)) * 100
-
-    # Create summary DataFrame
-    na_summary = pd.DataFrame(
-        {"Missing Values": na_counts, "Percentage": na_percentages}
-    )
-
-    # Sort by percentage of missing values
-    na_summary = na_summary.sort_values("Percentage", ascending=False)
-
-    # Filter to only show variables with missing values
-    na_summary = na_summary[na_summary["Missing Values"] > 0]
-
-    if len(na_summary) > 0:
-        log.info("\nVariables with missing values:")
-        log.info(na_summary)
-    else:
-        log.info("\nNo missing values found in any variables")
-    # Plot missing values distribution
-    na_summary["is_ret"] = na_summary.index.str.contains("RET")
-    p = (
-        ggplot(
-            na_summary.reset_index(),
-            aes(x="reorder(index, -Percentage)", y="Percentage"),
-        )
-        + geom_bar(stat="identity", fill="steelblue")
-        + facet_wrap("~is_ret", scales="free")
-        + theme(figure_size=(12, 6), axis_text_x=element_text(rotation=45, hjust=1))
-        + labs(
-            title="Missing Values Distribution",
-            x="Variables",
-            y="Percentage of Missing Values (%)",
-        )
-    )
-
-    print(p)
-
-
-def plot_model_accuracy(model_results):
-    """Plot accuracy comparison of different models.
-
-    Args:
-        model_results (dict): Dictionary containing model names and their accuracy scores
-
-    Returns:
-        plotnine plot object showing model accuracy comparison
-    """
-    plot_df = pd.DataFrame(
-        {"Model": model_results.keys(), "Accuracy": model_results.values()}
-    )
-
-    return (
-        ggplot(
-            plot_df.sort_values("Accuracy"),
-            aes(x="reorder(Model, Accuracy)", y="Accuracy"),
-        )
-        + geom_bar(stat="identity")
-        + geom_hline(yintercept=0.5131, color="red", linetype="dashed")
-        + annotate(
-            "text",
-            x=0,
-            y=0.5131,
-            label="Benchmark (0.5131)",
-            va="bottom",
-            ha="left",
-            color="red",
-        )
-        + theme(figure_size=(10, 6), axis_text_x=element_text(rotation=45, ha="right"))
-        + labs(title="Model Accuracy Comparison", x="Model", y="Accuracy Score")
-        + coord_cartesian(ylim=(0.5, plot_df["Accuracy"].max() * 1.1))
-    )
-
-
-# plot one row of data
-def plot_ret_and_vol(train_df: pd.DataFrame, row_id: int = 24) -> ggplot:
-    """Create a plot showing returns and volume for a given row.
-
-    Args:
-        train_df: DataFrame containing the training data
-        row_id: Row ID to plot
-
-    Returns:
-        ggplot object with the visualization
-    """
-    # Prepare return data
-    x_range = np.arange(20, 0, -1)
-    return_cols = [f"RET_{n}" for n in x_range]
-    volume_cols = [f"VOLUME_{n}" for n in x_range]
-
-    # Create return data frame
-    return_data = pd.DataFrame(
-        {
-            "Days": x_range,
-            "Return": train_df[return_cols].loc[row_id].values,
-            "Type": "Historical",
-        }
-    )
-
-    # Add target point
-    target_data = pd.DataFrame(
-        {
-            "Days": [0],
-            "Return": [0.1 if train_df["RET"].loc[row_id] else -0.1],
-            "Type": "Target",
-        }
-    )
-
-    plot_data = pd.concat([return_data, target_data])
-
-    # Create volume data
-    volume_data = pd.DataFrame(
-        {"Days": x_range, "Volume": train_df[volume_cols].loc[row_id].values / 10}
-    )
-    # Create plot
-    p = (
-        ggplot()
-        +
-        # Return bars
-        geom_bar(
-            data=plot_data,
-            mapping=aes(
-                x="-Days", y="Return", fill="Type"
-            ),  # Negate Days to invert x-axis
-            stat="identity",
-            alpha=0.7,
-        )
-        +
-        # Volume line
-        geom_line(
-            data=volume_data,
-            mapping=aes(x="-Days", y="Volume", group=1),  # Negate Days to invert x-axis
-            color="teal",
-            size=1,
-        )
-        + theme(figure_size=(10, 6))
-        + labs(x="Days to", y="Return / Volume (Volume scaled down by 10)")
-        + scale_x_continuous(labels=lambda x: [str(abs(int(i))) for i in x])
-    )
-
-    return p
-
-
 # %%
-def plot_correlation_matrix(df):
-    """
-    Create and plot a correlation matrix heatmap for the given dataframe.
+
+
+def get_node_idx(pipeline, node_name):
+    """Get the index of a node in a pipeline by its name.
 
     Args:
-        df (pd.DataFrame): Input dataframe to compute correlations for
+        pipeline: The pipeline to search in
+        node_name: Name of the node to find
 
     Returns:
-        None: Displays the correlation heatmap plot
+        int: Index of the node in the pipeline
     """
-    # compute the correlation matrix
-    corr_matrix = df.drop(
-        columns=[
-            ID_COLS,
-        ],
-        errors="ignore",
-    ).corr()
-
-    # Convert correlation matrix to long format for plotnine
-    corr_df = corr_matrix.reset_index().melt(id_vars="index")
-    corr_df.columns = ["Var1", "Var2", "value"]
-
-    # Create mask for upper triangle
-    mask = np.triu(np.ones_like(corr_matrix), k=1).astype(bool)
-    corr_df = corr_df[~mask.ravel()]
-
-    # Create heatmap with plotnine
-    p = (
-        ggplot(corr_df, aes("Var1", "Var2", fill="value"))
-        + geom_tile()
-        + scale_fill_gradient2(
-            low="brown", mid="white", high="green", limits=[-0.35, 0.35], midpoint=0
-        )
-        + theme(
-            figure_size=(12, 10),
-            axis_text_x=element_text(rotation=90, size=9),
-            axis_text_y=element_text(size=9),
-        )
-        + coord_equal()
-        + labs(title="Correlation Matrix")
-    )
-    print(p)
+    return next(i for i, node in enumerate(pipeline.nodes) if node.name == node_name)
 
 
-# simulation parameters
-def simulate_strategy(y_test, y_predict, n_simulations=1000, n_days=100):
-    """
-    Simulate trading strategy performance based on model predictions.
+def get_node_names(pipeline):
+    """Get list of all node names in a pipeline.
 
     Args:
-        y_test: True test labels
-        y_predict: Model predictions
-        n_simulations: Number of simulations to run
-        n_days: Number of days to simulate
+        pipeline: The pipeline to get node names from
 
     Returns:
-        np.array: Average cumulative strategy returns across simulations
+        list: List of node names in the pipeline
     """
+    return [node.name for node in pipeline.nodes]
 
-    # get accuracy
-    nn_accuracy = accuracy_score(y_test, y_predict)
 
-    # initialize strategy results
-    nn_strategy = np.zeros(n_days)
+def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
+    """Run a specific node from a pipeline.
 
-    # simulate
-    for i in range(n_simulations):
-        tmp_nn_strategy = []
-        for d in range(n_days):
-            tmp_nn_strategy.append(+1 if nn_accuracy > np.random.random() else -1)
-        # cumulative sum
-        nn_strategy += np.cumsum(tmp_nn_strategy)
+    Args:
+        pipeline_name: Name of the pipeline
+        node_name: Name of the node to run
+        inputs: Dictionary of input parameters for the node
 
-    # compute average performance
-    nn_strategy /= n_simulations
+    Returns:
+        Output from running the node
+    """
+    node_idx = get_node_idx(pipelines[pipeline_name], node_name)
+    return pipelines[pipeline_name].nodes[node_idx].run(inputs)
 
-    plot_data = pd.DataFrame(
-        {
-            "Days": range(n_days),
-            "NN": nn_strategy,
-        }
-    ).melt(id_vars=["Days"], var_name="Model", value_name="PnL")
 
-    # Add accuracy values to labels
-    plot_data["Label"] = plot_data["Model"].map(
-        {
-            "NN": f"NN, acc = {nn_accuracy:1.4f}",
-        }
-    )
+def _handle_dataframe_io(filepath: str, df=None, mode="read"):
+    """Handle reading/writing dataframes in different formats.
 
-    # Create plot
-    p = (
-        ggplot(plot_data, aes(x="Days", y="PnL", color="Label"))
-        + geom_line(size=1.2, alpha=0.8)
-        + scale_color_manual(values=["firebrick", "seagreen", "darkcyan"])
-        + theme(figure_size=(10, 6))
-        + labs(
-            title="Avg Performance of Long-Short Strategy Simulation",
-            x="Days",
-            y="PnL",
-            color="Model",
+    Args:
+        filepath: Path to the data file
+        df: DataFrame to save (only needed for write mode)
+        mode: Either 'read' or 'write'
+
+    Returns:
+        DataFrame if reading, None if writing
+    """
+    if filepath.endswith(".csv"):
+        print(f"{'Loading' if mode=='read' else 'Saving'} CSV file...")
+        return (
+            pd.read_csv(filepath)
+            if mode == "read"
+            else df.to_csv(filepath, index=False)
         )
-    )
+    elif filepath.endswith(".parquet"):
+        print(f"{'Loading' if mode=='read' else 'Saving'} Parquet file...")
+        return (
+            pd.read_parquet(filepath)
+            if mode == "read"
+            else df.to_parquet(filepath, index=False)
+        )
+    elif filepath.endswith(".pickle") or filepath.endswith(".pkl"):
+        print(f"{'Loading' if mode=='read' else 'Saving'} Pickle file...")
+        return pd.read_pickle(filepath) if mode == "read" else df.to_pickle(filepath)
+    else:
+        raise ValueError(f"Unsupported file extension for {filepath}")
 
-    print(p)
+
+def get_node_inputs(node, catalog):
+    """Get input paths for a pipeline node and load the data.
+
+    Args:
+        node: Pipeline node to get inputs for
+        catalog: Data catalog containing dataset info
+
+    Returns:
+        dict: Dictionary mapping input names to their loaded dataframes
+    """
+    print(f"Getting inputs for node: {node.name}")
+    print(f"Node inputs: {node.inputs}")
+
+    inputs = {}
+    for input_name in node.inputs:
+        if isinstance(input_name, str):
+            print(f"\nProcessing input: {input_name}")
+            if not input_name.startswith("params:"):
+                try:
+                    filepath = str(catalog.datasets[input_name]._filepath)
+                    print(f"Loading from filepath: {filepath}")
+
+                    df = _handle_dataframe_io(filepath, mode="read")
+                    print(f"Successfully loaded dataframe with shape: {df.shape}")
+                    inputs[input_name] = df
+                except Exception as e:
+                    print(f"Error loading data for {input_name}: {str(e)}")
+                    inputs[input_name] = None
+            else:
+                print(f"Skipping parameter input: {input_name}")
+
+    print(f"\nFinished loading {len(inputs)} inputs")
+    return inputs
+
+
+def get_node_outputs(node, catalog):
+    """Get output data from a pipeline node.
+
+    Args:
+        node: Pipeline node to get outputs for
+        catalog: Data catalog containing dataset info
+        outputs: Dictionary of output data to save
+
+    Returns:
+        dict: Dictionary mapping output names to their loaded dataframes
+    """
+    print(f"Getting outputs for node: {node.name}")
+    print(f"Node outputs: {node.outputs}")
+
+    output_dict = {}
+    for output_name in node.outputs:
+        if isinstance(output_name, str):
+            print(f"\nProcessing output: {output_name}")
+            try:
+                filepath = str(catalog.datasets[output_name]._filepath)
+                print(f"Loading from filepath: {filepath}")
+
+                df = _handle_dataframe_io(filepath, mode="read")
+                print(f"Successfully loaded dataframe with shape: {df.shape}")
+                output_dict[output_name] = df
+            except Exception as e:
+                print(f"Error loading data for {output_name}: {str(e)}")
+                output_dict[output_name] = None
+
+    print(f"\nFinished loading {len(node.outputs)} outputs")
+    return output_dict

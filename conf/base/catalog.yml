@@ -147,20 +147,67 @@ model_train_df:
     mode: overwrite
 
 feature_importance_plot:
-  type: plotly.PlotlyDataset
-  filepath: data/08_reporting/feature_importance.html
-  plotly_args:
-    html_frame: true
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/feature_importance.json
+  versioned: true
 
 returns_volume_plot:
-  type: plotly.PlotlyDataset 
-  filepath: data/08_reporting/returns_volume.html
-  plotly_args:
-    html_frame: true
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/returns_volume.json
+  versioned: true
 
 strategy_simulation_plot:
-  type: plotly.PlotlyDataset
-  filepath: data/08_reporting/strategy_simulation.html
-  plotly_args:
-    html_frame: true
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/strategy_simulation.json
+  versioned: true
 
+decision_tree_model:
+  filepath: data/06_models/decision_tree_model.pkl
+  type: pickle.PickleDataset
+
+gradient_boosting_model:
+  filepath: data/06_models/gradient_boosting_model.pkl 
+  type: pickle.PickleDataset
+
+model_metrics:
+  filepath: data/08_reporting/model_metrics.json
+  type: json.JSONDataset
+
+model_predictions:
+  filepath: data/07_model_output/predictions.csv
+  type: pandas.CSVDataset
+
+model_feature_importance:
+  filepath: data/08_reporting/feature_importance.csv
+  type: pandas.CSVDataset
+
+model_performance_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/model_performance.json
+  versioned: true
+
+roc_curve_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/roc_curve.json
+  versioned: true
+  
+correlation_matrix_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/correlation_matrix.json
+  save_args:
+    engine: auto
+
+na_percentages_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/na_percentages.json
+  versioned: true
+
+na_distribution_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/na_distribution.json
+  versioned: true
+
+model_accuracy_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/model_accuracy.json
+  versioned: true

@@ -150,6 +150,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from IPython.display import Markdown as md
+from kedro.framework.session import KedroSession
 from sklearn import tree
 from sklearn.metrics import accuracy_score, classification_report
 from sklearn.model_selection import GridSearchCV, train_test_split
@@ -157,20 +158,23 @@ from sklearn.preprocessing import StandardScaler
 from torch import nn
 
 from src.GBClassifierGridSearch import HistGBClassifierGridSearch
-from src.ml_in_finance_i_project.pipelines.data_processing.nodes import (
-    filter_infinity_values,
-    remove_duplicated_columns,
-)
-from src.nn import Net
-from src.utils import (
+from src.ml_in_finance_i_project.pipelines.reporting.nodes import (
     feature_importance,
-    model_fit,
-    plot_correlation_matrix,
     plot_model_accuracy,
-    plot_nan_percentages,
-    plot_ret_and_vol,
     simulate_strategy,
 )
+from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
+from src.nn import Net
+
+
+def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict) -> dict:
+    """Run a specific node from a pipeline."""
+    with KedroSession.create() as session:
+        context = session.load_context()
+        pipeline = context.pipelines[pipeline_name]
+        node = [n for n in pipeline.nodes if n.name == node_name][0]
+        return node.run(inputs)
+
 
 # %%
 # load the configuration file
@@ -222,6 +226,24 @@ def setup_colab_environment():
         return False
 
 
+# %%
+# Run a specific node from a pipeline.
+def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
+    """Run a specific node from a pipeline.
+
+    Args:
+        pipeline_name: Name of the pipeline
+        node_name: Name of the node to run
+        inputs: Dictionary of input parameters for the node
+
+    Returns:
+        Output from running the node
+    """
+    node_idx = get_node_idx(pipelines[pipeline_name], node_name)
+    return pipelines[pipeline_name].nodes[node_idx].run(inputs)
+
+
+# %%
 IN_COLAB = setup_colab_environment()
 
 # Configure logging to stdout
@@ -235,23 +257,19 @@ target = conf_params["model_options"]["target"]
 kfold = conf_params["model_options"]["kfold"]
 
 
-
-
 # %% [markdown]
 # ## Loading data
 # %%
 # Set data directory based on environment
 # Run data processing pipeline node
-out = (
-    pipelines["data_processing"]
-    .nodes[0]
-    .run(
-        {
-            "x_train_raw": x_train_raw,
-            "y_train_raw": y_train_raw,
-            "x_test_raw": x_test_raw,
-        }
-    )
+out = run_pipeline_node(
+    "data_processing",
+    "load_data_node",
+    {
+        "x_train_raw": x_train_raw,
+        "y_train_raw": y_train_raw,
+        "x_test_raw": x_test_raw,
+    },
 )
 
 
@@ -259,7 +277,12 @@ out = (
 # #### Problem visualization
 # %%
 # Plot returns and volume
-plot_ret_and_vol(out["train_df"], 28)
+run_pipeline_node(
+    "reporting",
+    "plot_returns_volume_node",
+    {"train_df": out["train_df"], "params:example_row_id": 28},
+)["returns_volume_plot"]
+
 
 # %% [markdown]
 # #### Head of the data
@@ -277,7 +300,11 @@ out["test_df"].info()
 # #### Plot nan percentages across categorical var
 
 # %%
-plot_nan_percentages(out["test_df"])
+run_pipeline_node(
+    "reporting",
+    "plot_nan_percentages_node",
+    {"cleaned_train": out["train_df"]},
+)["nan_percentages_plot"]
 
 # %% [markdown]
 
@@ -295,14 +322,8 @@ plot_nan_percentages(out["test_df"])
 # %% Dropping rows with NAs for the most important variables (RET_1 to RET_5)
 # The assumption is that the most recent values for regressors are the most important
 
-out2 = (
-    pipelines["data_processing"]
-    .nodes[1]
-    .run(
-        {
-            "train_df": out["train_df"],
-        }
-    )
+out2 = run_pipeline_node(
+    "data_processing", "drop_missing_returns_node", {"train_df": out["train_df"]}
 )
 
 # %% [markdown]
@@ -310,20 +331,16 @@ out2 = (
 # * Dropping rows with NAs
 # * If arg set to true, removing ID columns
 # * RET is encoded from bool to binary
-
 # %%
-out3 = (
-    pipelines["data_processing"]
-    .nodes[2]
-    .run(
-        {
-            "train_df_dropped": out2["train_df_dropped"],
-            "test_df": out["test_df"],
-            "params:remove_id_cols": conf_params["remove_id_cols"],
-        }
-    )
+out3 = run_pipeline_node(
+    "data_processing",
+    "preprocess_data_node",
+    {
+        "train_df_dropped": out2["train_df_dropped"],
+        "test_df": out["test_df"],
+        "params:remove_id_cols": conf_params["remove_id_cols"],
+    },
 )
-
 
 # %% [markdown]
 # #### Check Class Imbalance
@@ -353,8 +370,12 @@ md(
 # Moreover, Volatility and Volumes tend to cluster. Hence, correlation is positive.
 # * There is a strong positive correlation between the volume of the previous day and the return of the following day
 # %%
-plot_correlation_matrix(out3["train_df_preprocessed"])
-
+out_corr = run_pipeline_node(
+    "reporting",
+    "plot_correlation_matrix_node",
+    {"train_df": out3["train_df_preprocessed"]},
+)
+out_corr
 # %% [markdown]
 # ## Feature Engineering - Technical Indicators using TA-Lib
 # In this part, we calculate the technical indicators for the train and test data.
@@ -376,42 +397,60 @@ plot_correlation_matrix(out3["train_df_preprocessed"])
 # %%
 # This comes from organizers' notebook, it's an extended version of variables they used
 # Feature engineering
-out4 = (
-    pipelines["data_processing"]
-    .nodes[3]
-    .run(
+# Calculate statistical features
+
+import warnings
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    out4 = run_pipeline_node(
+        "data_processing",
+        "calculate_statistical_features_node",
         {
             "train_df_preprocessed": out3["train_df_preprocessed"],
             "test_df_preprocessed": out3["test_df_preprocessed"],
-        }
+        },
     )
-)
+
+# %% [markdown]
+# ### Calculate technical indicators
 # %%
-out5 = (
-    pipelines["data_processing"]
-    .nodes[4]
-    .run(
+calculate = True
+
+if calculate:
+    out5 = run_pipeline_node(
+        "data_processing",
+        "calculate_technical_indicators_node",
         {
             "train_df_statistical_features": out4["train_df_statistical_features"],
             "test_df_statistical_features": out4["test_df_statistical_features"],
-        }
+            "params:features_ret_vol": conf_params["features_ret_vol"],
+        },
     )
-)
+else:
+    out5 = get_node_outputs(
+        pipelines["data_processing"].nodes[
+            get_node_idx(
+                pipelines["data_processing"], "calculate_technical_indicators_node"
+            )
+        ],
+        catalog,
+    )
+
+
 # %% [markdown]
 # #### Columns to drop
 # They could bring in some predictive power, but we don't want to use them in this case
 # as the scope is limited for this project
 # ['ID', 'STOCK', 'DATE', 'INDUSTRY', 'INDUSTRY_GROUP', 'SECTOR', 'SUB_INDUSTRY']
 # %%
-out6 = (
-    pipelines["data_processing"]
-    .nodes[5]
-    .run(
-        {
-            "train_ta_indicators": out5["train_ta_indicators"],
-            "test_ta_indicators": out5["test_ta_indicators"],
-        }
-    )
+out6 = run_pipeline_node(
+    "data_processing",
+    "drop_id_cols_node",
+    {
+        "train_ta_indicators": out5["train_ta_indicators"],
+        "test_ta_indicators": out5["test_ta_indicators"],
+    },
 )
 
 # %% [markdown]
@@ -419,59 +458,52 @@ out6 = (
 # For instance SMA(10), SMA(11) etc. dont give any information in the context of RET.
 # It's an arbitrary choice, but we want to keep the number of features low
 
-out7 = (
-    pipelines["data_processing"]
-    .nodes[6]
-    .run(
-        {
-            "train_ta_indicators_dropped": out6["train_ta_indicators_dropped"],
-            "params:target": conf_params["model_options"]["target"],
-        }
-    )
+out7 = run_pipeline_node(
+    "data_processing",
+    "drop_technical_indicators_node",
+    {
+        "train_ta_indicators_dropped": out6["train_ta_indicators_dropped"],
+        "params:target": conf_params["model_options"]["target"],
+    },
 )
 # %% Filter out infinity values
-out8 = (
-    pipelines["data_processing"]
-    .nodes[7]
-    .run(
-        {
-            "train_df_technical_indicators": out7["train_df_technical_indicators"],
-            "test_df_technical_indicators": out7["test_df_technical_indicators"],
-            "features": out7["features"],
-            "target": conf_params["model_options"]["target"],
-        }
-    )
-
-# Remove duplicated columns
-out9 = (
-    pipelines["data_processing"]
-    .nodes[8]
-    .run(
-        {
-            "train_df_rm_duplicates": out8["train_df_rm_duplicates"],
-            "test_df_rm_duplicates": out8["test_df_rm_duplicates"],
-        }
-    )
+out8 = run_pipeline_node(
+    "data_processing",
+    "drop_infinity_values_node",
+    {
+        "train_df_technical_indicators": out7["train_df_technical_indicators"],
+        "test_df_technical_indicators": out7["test_df_technical_indicators"],
+    },
 )
+
+# %%
+# Remove duplicated columns
+out9 = run_pipeline_node(
+    "data_processing",
+    "drop_duplicated_columns_node",
+    {
+        "train_df_rm_duplicates": out8["train_df_rm_duplicates"],
+        "test_df_rm_duplicates": out8["test_df_rm_duplicates"],
+    },
+)
+
 # %%
 # Features
 # Default selection
-features = train_df_rm_duplicates.columns.drop(target).tolist()
+features = out9["train_df_rm_duplicates"].columns.drop(target).tolist()
 
 # %% [markdown]
 # ## ML DecisionTreeClassifier
 
 # %%
 # Train and test set splitting
-out10 = (
-    pipelines["data_processing"]
-    .nodes[9]
-    .run(
-        {
-            "train_df_rm_duplicates": out9["train_df_rm_duplicates"],
-            "test_df_rm_duplicates": out9["test_df_rm_duplicates"],
-        }
-    )
+out10 = run_pipeline_node(
+    "data_processing",
+    "split_data_node",
+    {
+        "train_df_rm_duplicates": out9["train_df_rm_duplicates"],
+        "test_df_rm_duplicates": out9["test_df_rm_duplicates"],
+    },
 )
 
 
@@ -747,7 +779,7 @@ y_train_tensor = torch.FloatTensor(y_train.values).reshape(-1, 1)
 X_test_tensor = torch.FloatTensor(X_test)
 Y_test_tensor = torch.FloatTensor(y_test.values).reshape(-1, 1)
 
-
+train_neural_network(train_df, parameters)
 # %% [markdown]
 # Training part
 

@@ -1488,37 +1488,44 @@ def calculate_ta_indicators(
     return results, new_features
 
 
-def calculate_all_ta_indicators(train_df):
+def calculate_all_ta_indicators(df, features=None):
     """Calculate all technical indicators for the given dataframe.
 
     Args:
-        train_df (pd.DataFrame): Input dataframe with price/volume data
+        df (pd.DataFrame): Input dataframe with price/volume data
+        features (list, optional): List of technical indicators to calculate. If None, calculates all.
 
     Returns:
         pd.DataFrame: DataFrame containing all calculated technical indicators
     """
+    all_features = [
+        (talib.OBV, {"data_type": "both"}),
+        (talib.RSI, {"data_type": "ret"}),
+        (talib.MOM, {"timeperiod": 5, "data_type": "ret"}),
+        (talib.ROCR, {"timeperiod": 5, "data_type": "ret"}),
+        (talib.CMO, {"timeperiod": 14, "data_type": "ret"}),
+        (talib.EMA, {"timeperiod": 5, "data_type": "ret"}),
+        (talib.SMA, {"timeperiod": 5, "data_type": "ret"}),
+        (talib.WMA, {"timeperiod": 5, "data_type": "ret"}),
+        (talib.MIDPOINT, {"timeperiod": 10, "data_type": "ret"}),
+        # (talib.MIDPRICE, {"timeperiod": 10, "data_type": "ret"}),
+    ]
+
+    # if features is not None:
+    #     all_features = [(ta_func, ta_args) for ta_func, ta_args in all_features
+    #                    if ta_func.__name__ in features]
+
     ta_indicators_df = pd.concat(
         [
             result[0]  # Get first element of tuple returned by calculate_ta_indicators
             for result in [
                 calculate_ta_indicators(
-                    train_df,
+                    df[features],
                     periods=[2, 5, 14],
                     ta_func=ta_func,
                     ta_args=ta_args,
                 )
-                for ta_func, ta_args in [
-                    (talib.OBV, {"data_type": "both"}),
-                    (talib.RSI, {"data_type": "ret"}),
-                    (talib.MOM, {"timeperiod": 5, "data_type": "ret"}),
-                    (talib.ROCR, {"timeperiod": 5, "data_type": "ret"}),
-                    (talib.CMO, {"timeperiod": 14, "data_type": "ret"}),
-                    (talib.EMA, {"timeperiod": 5, "data_type": "ret"}),
-                    (talib.SMA, {"timeperiod": 5, "data_type": "ret"}),
-                    (talib.WMA, {"timeperiod": 5, "data_type": "ret"}),
-                    (talib.MIDPOINT, {"timeperiod": 10, "data_type": "ret"}),
-                    # (talib.MIDPRICE, {"timeperiod": 10, "data_type": "ret"}),
-                ]
+                for ta_func, ta_args in all_features
             ]
         ],
         axis=1,

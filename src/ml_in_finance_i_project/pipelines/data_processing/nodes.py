@@ -308,6 +308,7 @@ def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
 def calculate_technical_indicators(
     train_df: pd.DataFrame,
     test_df: pd.DataFrame,
+    features: list[str] = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Calculate or load technical indicators for train and test data.
 
@@ -319,12 +320,12 @@ def calculate_technical_indicators(
         tuple[pd.DataFrame, pd.DataFrame]: Technical indicators for train and test data
     """
     log.info("Calculating technical indicators for train and test data")
-    ta_indicators_df = calculate_all_ta_indicators(train_df)
-    test_ta_indicators_df = calculate_all_ta_indicators(test_df)
+    ta_indicators_df = calculate_all_ta_indicators(train_df, features)
+    test_ta_indicators_df = calculate_all_ta_indicators(test_df, features)
     train_df = pd.concat([train_df, ta_indicators_df], axis=1)
     test_df = pd.concat([test_df, test_ta_indicators_df], axis=1)
 
-    return ta_indicators_df, test_ta_indicators_df
+    return train_df, test_df
 
 
 def calculate_statistical_features(

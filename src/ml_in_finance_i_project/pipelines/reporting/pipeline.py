@@ -16,6 +16,13 @@ def create_pipeline(**kwargs) -> Pipeline:
     return pipeline(
         [
             node(
+                func=plot_correlation_matrix,
+                inputs="train_df",
+                outputs="correlation_matrix_plot",
+                name="plot_correlation_matrix_node",
+                tags=["reporting", "visualization"],
+            ),
+            node(
                 func=feature_importance,
                 inputs=["model", "features", "params:feature_importance_threshold"],
                 outputs="feature_importance_plot",
@@ -48,13 +55,6 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=["train_df", "params:example_row_id"],
                 outputs="returns_volume_plot",
                 name="plot_returns_volume_node",
-                tags=["reporting", "visualization"],
-            ),
-            node(
-                func=plot_correlation_matrix,
-                inputs="train_df",
-                outputs="correlation_matrix_plot",
-                name="plot_correlation_matrix_node",
                 tags=["reporting", "visualization"],
             ),
             node(

@@ -1,1 +1,1 @@
-{"train_ta_indicators": {"rows": 314160, "columns": 363, "file_size": 914839372}, "train_df_technical_indicators": {"rows": 314160, "columns": 40, "file_size": 103045898}}
+{"x_train_raw": {"rows": 418595, "columns": 47, "file_size": 326945949}, "y_train_raw": {"rows": 418595, "columns": 2, "file_size": 5121786}, "x_test_raw": {"rows": 198429, "columns": 47, "file_size": 157074695}, "train_df": {"rows": 418595, "columns": 49, "file_size": 161160499}, "test_df": {"rows": 198429, "columns": 47, "file_size": 74610548}}

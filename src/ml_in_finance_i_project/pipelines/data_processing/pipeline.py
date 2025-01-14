@@ -58,6 +58,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=[
                     "train_df_statistical_features",
                     "test_df_statistical_features",
+                    "params:features_ret_vol",
                 ],
                 outputs=[
                     "train_ta_indicators",
