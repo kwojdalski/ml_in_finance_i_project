@@ -44,7 +44,7 @@ def feature_importance(model, features: list[str], threshold: float = 0.01):
             marker_color="steelblue",
         )
     )
-
+    fig.add_vline(x=threshold, line_dash="dash", line_color="red", line_width=2)
     # Update layout
     fig.update_layout(
         title="Feature Importance",
@@ -54,33 +54,6 @@ def feature_importance(model, features: list[str], threshold: float = 0.01):
         width=800,
         showlegend=False,
     )
-
-    # Create plot
-    # fig = go.Figure()
-
-    # # Add bar trace
-    # fig.add_trace(
-    #     go.Bar(
-    #         x=feature_importances["importance"],
-    #         y=feature_importances["feature"],
-    #         orientation="h",
-    #         marker_color="steelblue",
-    #     )
-    # )
-
-    # # Add threshold line as vertical line
-    # fig.add_vline(x=threshold, line_dash="dash", line_color="red", line_width=2)
-
-    # # Update layout
-    # fig.update_layout(
-    #     title="Feature Importance",
-    #     xaxis_title="Importance",
-    #     yaxis_title="Features",
-    #     height=1200,
-    #     width=1000,
-    #     showlegend=False,
-    # )
-
     return fig
 
 
@@ -248,51 +221,37 @@ def plot_ret_and_vol(train_df: pd.DataFrame, row_id: int = 24) -> go.Figure:
     Returns:
         plotly.graph_objects.Figure: A plotly figure with the visualization
     """
-    # Prepare return data
-    x_range = np.arange(20, 0, -1)
-    return_cols = [f"RET_{n}" for n in x_range]
-    volume_cols = [f"VOLUME_{n}" for n in x_range]
+    # Prepare data
+    days = np.arange(-20, 1)  # Include 0 for target point
+    return_cols = [f"RET_{n}" for n in range(20, 0, -1)]
+    volume_cols = [f"VOLUME_{n}" for n in range(20, 0, -1)]
 
-    # Create return data
-    return_data = pd.DataFrame(
-        {
-            "Days": -x_range,  # Negate days to invert x-axis
-            "Return": train_df[return_cols].loc[row_id].values,
-            "Type": "Historical",
-        }
-    )
+    # Get returns and volumes
+    returns = train_df.loc[row_id, return_cols].values
+    volumes = train_df.loc[row_id, volume_cols].values / 10
 
-    # Add target point
-    target_data = pd.DataFrame(
-        {
-            "Days": [0],
-            "Return": [0.1 if train_df["RET"].loc[row_id] else -0.1],
-            "Type": "Target",
-        }
-    )
-
-    plot_data = pd.concat([return_data, target_data])
-
-    # Create volume data
-    volume_data = pd.DataFrame(
-        {
-            "Days": -x_range,  # Negate days to invert x-axis
-            "Volume": train_df[volume_cols].loc[row_id].values / 10,
-        }
-    )
-
-    # Create figure with secondary y-axis
+    # Create figure
     fig = go.Figure()
 
-    # Add return bars
+    # Add historical returns
     fig.add_trace(
         go.Bar(
-            x=plot_data["Days"],
-            y=plot_data["Return"],
-            name="Returns",
-            marker_color=[
-                "steelblue" if t == "Historical" else "red" for t in plot_data["Type"]
-            ],
+            x=days[:-1],  # Exclude last day (0) for historical data
+            y=returns,
+            name="Historical Returns",
+            marker_color="steelblue",
+            opacity=0.7,
+        )
+    )
+
+    # Add target return
+    target_return = 0.1 if train_df.loc[row_id, "RET"] else -0.1
+    fig.add_trace(
+        go.Bar(
+            x=[0],
+            y=[target_return],
+            name="Target Return",
+            marker_color="red",
             opacity=0.7,
         )
     )
@@ -300,9 +259,9 @@ def plot_ret_and_vol(train_df: pd.DataFrame, row_id: int = 24) -> go.Figure:
     # Add volume line
     fig.add_trace(
         go.Scatter(
-            x=volume_data["Days"],
-            y=volume_data["Volume"],
-            name="Volume",
+            x=days[:-1],  # Exclude last day (0) for volume data
+            y=volumes,
+            name="Volume (scaled down by 10)",
             line=dict(color="teal", width=2),
         )
     )
@@ -310,8 +269,8 @@ def plot_ret_and_vol(train_df: pd.DataFrame, row_id: int = 24) -> go.Figure:
     # Update layout
     fig.update_layout(
         title="Returns and Volume Over Time",
-        xaxis_title="Days to",
-        yaxis_title="Return / Volume (Volume scaled down by 10)",
+        xaxis_title="Days to Target",
+        yaxis_title="Return / Volume",
         height=600,
         width=800,
         showlegend=True,

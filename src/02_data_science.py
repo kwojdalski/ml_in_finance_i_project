@@ -102,9 +102,9 @@ out10 = run_pipeline_node(
     },
 )
 # %%
-X_train = out10["X_train"].head(1000)
+X_train = out10["X_train"]
 X_test = out10["X_test"]
-y_train = out10["y_train"].head(1000)
+y_train = out10["y_train"]
 y_test = out10["y_test"]
 nan_mask = X_train.isna().any(axis=1)
 X_train = X_train[~nan_mask]
