@@ -9,19 +9,17 @@
             "type": "debugpy",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal",
-            "justMyCode": false
+            "console": "integratedTerminal"
         },
         {
-            "name": "Python: Debug current file (project root directory)",
-            "type": "debugpy",
+            "name": "Python: Kedro Run",
+            "type": "python",
             "request": "launch",
-            "program": "${file}",
             "console": "integratedTerminal",
-            "cwd": "${workspaceRoot}",
-            "env": {
-                "PYTHONPATH": "${workspaceRoot}"
-            }
+            "module": "kedro",
+            "args": ["run"]
+            // Any other arguments should be passed as a comma-seperated-list
+            // e.g "args": ["run", "--pipeline", "pipeline_name"]
         }
     ]
 }

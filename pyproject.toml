@@ -3,22 +3,25 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-requires-python = ">=3.9"
-name = "ml_project"
+requires-python = ">=3.9,<4.0"
+name = "ml_in_finance_i_project"
 readme = "README.md"
+version = "3.12.0"
 dynamic = ["version"]
 dependencies = [
     "ipython>=8.10",
     "jupyterlab>=3.0",
     "notebook",
     "kedro[jupyter]~=0.19.10",
-    "kedro-datasets[pandas-csvdataset, pandas-exceldataset, pandas-parquetdataset]>=3.0",
+    "kedro-datasets[pandas-csvdataset, pandas-exceldataset, pandas-parquetdataset, spark-sparkdataset, plotly-plotlydataset, plotly-jsondataset, matplotlib-matplotlibwriter]>=3.0",
     "kedro-viz>=6.7.0",
-    "scikit-learn~=1.5.1"
+    "scikit-learn~=1.5.1",
+    "seaborn~=0.12.1",
+    "setuptools; python_version >= '3.12'"
 ]
 
 [project.scripts]
-"space" = "ml_project.__main__:main"
+"ml-in-finance-i-project" = "ml_in_finance_i_project.__main__:main"
 
 [project.entry-points."kedro.hooks"]
 
@@ -42,16 +45,24 @@ dev = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "ml_project.__version__"}
+version = {attr = "ml_in_finance_i_project.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = false
 
+[tool.kedro]
+package_name = "ml_in_finance_i_project"
+project_name = "ml_in_finance_i_project"
+kedro_init_version = "0.19.10"
+tools = "['Linting', 'Testing', 'Custom Logging', 'Documentation', 'Data Structure', 'PySpark', 'Kedro Viz']"
+example_pipeline = "True"
+source_dir = "src"
+
 [tool.pytest.ini_options]
 addopts = """
 --cov-report term-missing \
---cov src/space -ra"""
+--cov src/ml_in_finance_i_project -ra"""
 
 [tool.coverage.report]
 fail_under = 0
@@ -76,4 +87,4 @@ select = [
 ignore = ["E501"]  # Ruff format takes care of line-too-long
 
 [tool.kedro_telemetry]
-project_id = "75dc7511dfc448b095ffaa766fca646f"
+project_id = "dc2a4c70761246f3ab9af4d7c986db5c"

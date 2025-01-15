@@ -1,0 +1,11 @@
+datasets:
+    csv: "pandas.CSVDataSet"
+    spark: "spark.SparkDataSet"
+
+folders:
+    raw: "01_raw"
+    int: "02_intermediate"
+    pri: "03_primary"
+    fea: "04_feature"
+
+    

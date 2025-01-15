@@ -4,6 +4,9 @@ data/
 __pycache__/
 *.py[cod]
 *$py.class
+poetry.lock
+*/.DS_Store
+*/.gitkeep
 
 # C extensions
 *.so

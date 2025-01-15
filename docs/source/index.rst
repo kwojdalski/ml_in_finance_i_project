@@ -1,8 +1,8 @@
-.. space documentation master file, created by sphinx-quickstart.
+.. ml_in_finance_i_project documentation master file, created by sphinx-quickstart.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to project space's API docs!
+Welcome to project ml_in_finance_i_project's API docs!
 =============================================
 
 .. toctree::
