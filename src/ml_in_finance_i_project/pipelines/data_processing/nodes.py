@@ -78,6 +78,12 @@ def preprocess_data(
     train_df = train_df.dropna()
     n_after = len(train_df)
     log.debug(f"Dropped {n_before - n_after} rows with NA values from train_df")
+    # Set index to ID column
+    train_df = train_df.loc[:, ~train_df.columns.duplicated()]
+    train_df = train_df.set_index("ID")
+    test_df = test_df.loc[:, ~test_df.columns.duplicated()]
+    test_df = test_df.set_index("ID")
+    log.debug("Set index to ID column for train_df and test_df")
 
     if remove_id_cols:
         train_df = train_df.drop(conf_params["raw_data"]["id_cols"], axis=1)

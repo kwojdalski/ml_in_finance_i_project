@@ -17,7 +17,8 @@
 # %%
 import sys
 from pathlib import Path
-from turtle import pd
+
+import pandas as pd
 
 try:
     # vscode

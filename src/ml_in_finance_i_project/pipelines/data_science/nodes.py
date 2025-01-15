@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import torch
+from GBClassifierGridSearch import HistGBClassifierGridSearch
 from sklearn import tree
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV, train_test_split
@@ -8,8 +9,7 @@ from sklearn.preprocessing import StandardScaler
 from torch import nn
 from utils import model_fit
 
-from GBClassifierGridSearch import HistGBClassifierGridSearch
-from nn import Net
+from ml_in_finance_i_project.nn import Net
 
 
 def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
