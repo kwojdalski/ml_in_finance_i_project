@@ -161,9 +161,9 @@ def create_model_input_table(
 def drop_id_cols(
     train_df: pd.DataFrame, test_df: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
-    return train_df.drop(conf_params["raw_data"]["id_cols"], axis=1), test_df.drop(
-        conf_params["raw_data"]["id_cols"], axis=1
-    )
+    return train_df.drop(
+        conf_params["raw_data"]["id_cols"], axis=1, errors="ignore"
+    ), test_df.drop(conf_params["raw_data"]["id_cols"], axis=1, errors="ignore")
 
 
 def drop_obsolete_technical_indicators(
