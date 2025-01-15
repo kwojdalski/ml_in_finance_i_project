@@ -85,11 +85,6 @@ def preprocess_data(
             f"Dropped ID columns {conf_params['raw_data']['id_cols']} from train_df"
         )
 
-    n_before = len(test_df)
-    test_df = test_df.dropna()
-    n_after = len(test_df)
-    log.debug(f"Dropped {n_before - n_after} rows with NA values from test_df")
-
     if remove_id_cols:
         test_df = test_df.drop(conf_params["raw_data"]["id_cols"], axis=1)
         log.debug(
@@ -195,6 +190,7 @@ def drop_obsolete_technical_indicators(
 
     # Drop identified columns
     train_df.drop(columns=cols_to_drop, inplace=True, errors="ignore")
+    test_df.drop(columns=cols_to_drop, inplace=True, errors="ignore")
 
     # Get remaining features
     features = [col for col in train_df.columns if col != target]

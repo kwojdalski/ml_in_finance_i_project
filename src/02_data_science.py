@@ -17,6 +17,7 @@
 # %%
 import sys
 from pathlib import Path
+from turtle import pd
 
 try:
     # vscode
@@ -85,6 +86,7 @@ out9 = get_node_outputs(
     ],
     catalog,
 )
+
 # %% [markdown]
 # %%
 # Drop target column if existsand convert to list
@@ -232,8 +234,8 @@ gbm_classifier = run_pipeline_node(
     "data_science",
     "train_gradient_boosting_node",
     {
-        "X_train": X_train.head(1000),
-        "y_train": y_train.head(1000),
+        "X_train": X_train,
+        "y_train": y_train,
         "parameters": conf_params["model_options"],
     },
 )["gb_model"]
@@ -305,7 +307,6 @@ model_fit(
     roc=True,
     printFeatureImportance=True,
 )
-
 
 # %% [markdown]
 # ## Neural Network
@@ -419,12 +420,29 @@ run_pipeline_node(
     },
 )["strategy_simulation_plot"]
 
+# %% [markdown]
+# ### Predictions for the contest
+max_features_result.best_estimator_.predict(out9["test_df_rm_duplicates"])
+y_pred = max_features_result.best_estimator_.predict_proba(
+    out9["test_df_rm_duplicates"].fillna(0)
+)[:, 1]
+sub = out9["test_df_rm_duplicates"].copy()
+sub["pred"] = y_pred
+y_pred = sub["pred"].transform(lambda x: x > x.median()).values
 
+submission = pd.Series(y_pred)
+submission.index = sub.index + 418595
+submission.name = target
+
+submission.to_csv("./data/07_model_output/submission.csv", index=True, header=True)
 # %% [markdown]
 # ### Key Findings:
 #
 # - All models are compared against the benchmark accuracy of 51.31%
+#    + It's not a perfect benchmark as the number comes from completely unseen data while
+#    models performance is evaluated on the part of the training set
 # - The tuned Gradient Boosting model significantly outperforms other models
+#    + but when submitted via QRT data challenge the performance wasn't great (**0.5066**)
 # - Hyperparameter tuning improved both Decision Tree and Gradient Boosting performance
 # - Gradient Boosting shows superior performance compared to Decision Trees, which is expected
 # - HistGradientBoostingClassifier is much faster than GradientBoostingClassifier without

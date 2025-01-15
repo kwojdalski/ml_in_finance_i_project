@@ -148,18 +148,11 @@ import logging as log
 from pathlib import Path
 
 from IPython.display import Markdown as md
-from kedro.framework.session import KedroSession
 
 from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
 
-
-def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict) -> dict:
-    """Run a specific node from a pipeline."""
-    with KedroSession.create() as session:
-        context = session.load_context()
-        pipeline = context.pipelines[pipeline_name]
-        node = [n for n in pipeline.nodes if n.name == node_name][0]
-        return node.run(inputs)
+# %% [markdown]
+# #### Run pipeline node definition. This one must be evaluated within the notebook
 
 
 # %%
@@ -202,8 +195,7 @@ def setup_colab_environment():
         return False
 
 
-# %%
-# Run a specific node from a pipeline.
+# %% Run a specific node from a pipeline.
 def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
     """Run a specific node from a pipeline.
 
@@ -413,13 +405,13 @@ else:
         catalog,
     )
 
-
 # %% [markdown]
 # #### Columns to drop
 # They could bring in some predictive power, but we don't want to use them in this case
 # as the scope is limited for this project
 # ['ID', 'STOCK', 'DATE', 'INDUSTRY', 'INDUSTRY_GROUP', 'SECTOR', 'SUB_INDUSTRY']
 # %%
+
 out6 = run_pipeline_node(
     "data_processing",
     "drop_id_cols_node",
@@ -444,6 +436,7 @@ out7 = run_pipeline_node(
     },
 )
 
+
 # %% Filter out infinity values
 out8 = run_pipeline_node(
     "data_processing",
@@ -466,3 +459,4 @@ out9 = run_pipeline_node(
         "test_df_filtered": out8["test_df_filtered"],
     },
 )
+# %%
