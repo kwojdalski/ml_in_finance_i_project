@@ -87,7 +87,6 @@ benchmark_qrt:
   save_args:
     mode: overwrite
 
-
 train_ta_indicators:
   filepath: data/04_feature/train_ta_indicators.pkl
   type: pickle.PickleDataset
@@ -102,6 +101,14 @@ train_df_technical_indicators:
 
 test_df_technical_indicators:
   filepath: data/04_feature/test_df_technical_indicators.pkl
+  type: pickle.PickleDataset
+
+train_df_rm_duplicates:
+  filepath: data/04_feature/train_df_rm_duplicates.pkl
+  type: pickle.PickleDataset
+
+test_df_rm_duplicates:
+  filepath: data/04_feature/test_df_rm_duplicates.pkl
   type: pickle.PickleDataset
 
 X_train:

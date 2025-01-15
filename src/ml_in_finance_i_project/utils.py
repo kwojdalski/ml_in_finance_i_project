@@ -128,7 +128,7 @@ def model_fit(
     model,
     X: pd.DataFrame,
     Y: pd.Series,
-    features: list[str],
+    features: list[str] | None = None,
     performCV: bool = True,
     roc: bool = False,
     printFeatureImportance: bool = False,
@@ -138,12 +138,12 @@ def model_fit(
     cross-validation, ROC curve and feature importance analysis.
     """
     # Fitting the model on the data_set
-    model.fit(X[features], Y)
+    if features is not None:
+        X = X[features]
 
+    model.fit(X, Y)
     # Predict training set:
-    predictions = model.predict(X[features])
-    # predprob = model.predict_proba(X[features])[:, 1]
-
+    predictions = model.predict(X)
     # Create and print confusion matrix
     cfm = confusion_matrix(Y, predictions)
     log.info("\nModel Confusion matrix")
@@ -156,7 +156,7 @@ def model_fit(
     # Perform cross-validation: evaluate using 10-fold cross validation
     # kfold = StratifiedKFold(n_splits=10, shuffle=True)
     if performCV:
-        evaluation(model, X[features], Y, kfold)
+        evaluation(model, X, Y, kfold)
     if roc:
         compute_roc(Y, predictions, plot=True)
 

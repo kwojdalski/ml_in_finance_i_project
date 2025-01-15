@@ -1,14 +1,15 @@
+import numpy as np
 import pandas as pd
 import torch
 from sklearn import tree
 from sklearn.metrics import accuracy_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch import nn
+from utils import model_fit
 
 from GBClassifierGridSearch import HistGBClassifierGridSearch
 from nn import Net
-from utils import model_fit
 
 
 def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
@@ -20,8 +21,8 @@ def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
     Returns:
         Split data.
     """
-    X = data[parameters["features"]]
-    y = data["RET"]
+    y = data[parameters["target"]]
+    X = data.drop(parameters["target"], axis=1)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=parameters["test_size"], random_state=parameters["random_state"]
     )
@@ -30,7 +31,7 @@ def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
 
 
 def train_decision_tree(
-    train_df: pd.DataFrame, parameters: dict
+    X_train: pd.DataFrame, y_train: pd.DataFrame
 ) -> tree.DecisionTreeClassifier:
     """Train and tune decision tree model.
 
@@ -41,23 +42,13 @@ def train_decision_tree(
     Returns:
         Trained decision tree model
     """
-    # Keep original decision tree training code
-    features = [col for col in train_df.columns if col != parameters["target"]]
-    x_train, x_test, y_train, y_test = train_test_split(
-        train_df[features],
-        train_df[parameters["target"]],
-        test_size=0.25,
-        random_state=0,
-    )
-
     base_dt = tree.DecisionTreeClassifier()
-    model_fit(base_dt, x_train, y_train, features, performCV=False)
-
+    model_fit(base_dt, X_train, y_train, performCV=False)
     return base_dt
 
 
 def train_gradient_boosting(
-    train_df: pd.DataFrame, parameters: dict
+    X_train: pd.DataFrame, y_train: pd.DataFrame, parameters: dict
 ) -> HistGBClassifierGridSearch:
     """Train and tune gradient boosting model.
 
@@ -70,15 +61,16 @@ def train_gradient_boosting(
     """
     # Keep original gradient boosting code
     gbm_classifier = HistGBClassifierGridSearch()
-    features = [col for col in train_df.columns if col != parameters["target"]]
-    x_train = train_df[features]
-    y_train = train_df[parameters["target"]]
+    features = [col for col in X_train.columns if col != parameters["target"]]
+    x_train = X_train[features]
     gbm_classifier.run(x_train, y_train)
 
-    return gbm_classifier.model
+    return gbm_classifier
 
 
-def train_neural_network(train_df: pd.DataFrame, parameters: dict) -> Net:
+def train_neural_network(
+    X_train: pd.DataFrame, y_train: pd.DataFrame, parameters: dict
+) -> Net:
     """Train neural network model.
 
     Args:
@@ -89,12 +81,9 @@ def train_neural_network(train_df: pd.DataFrame, parameters: dict) -> Net:
         Trained neural network model
     """
     # Keep original neural network code
-    features = [col for col in train_df.columns if col != parameters["target"]]
-    x_train = train_df[features]
-    y_train = train_df[parameters["target"]]
-
+    features = [col for col in X_train.columns if col != parameters["target"]]
     scaler = StandardScaler()
-    X_train = scaler.fit_transform(x_train)
+    X_train = scaler.fit_transform(X_train)
 
     nn_model = Net(len(features))
     criterion = nn.BCELoss()
@@ -108,13 +97,12 @@ def train_neural_network(train_df: pd.DataFrame, parameters: dict) -> Net:
     batch_size = parameters["batch_size"]
 
     for epoch in range(n_epochs):
-        for i in range(0, len(train_df), batch_size):
+        print(f"Epoch {epoch+1}/{n_epochs}")
+        for i in range(0, len(X_train), batch_size):
             batch_X = X_train_tensor[i : i + batch_size]
             batch_y = y_train_tensor[i : i + batch_size]
-
             outputs = nn_model(batch_X)
             loss = criterion(outputs, batch_y.view(-1, 1))
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -156,3 +144,58 @@ def evaluate_models(
         model_results["Neural Network"] = accuracy_score(test_df["RET"], y_predict)
 
     return model_results
+
+
+def tune_decision_tree(
+    X_train: pd.DataFrame, y_train: pd.DataFrame, parameters: dict
+) -> dict:
+    """Tune decision tree hyperparameters using grid search cross validation.
+
+    Args:
+        X_train: Training features
+        y_train: Training target
+        parameters: Model parameters including kfold value
+
+    Returns:
+        Dictionary containing:
+        - best_model: The tuned decision tree model
+        - best_params: Best hyperparameters found
+        - cv_results: Cross validation results
+    """
+    params = {"max_depth": np.arange(2, 7), "criterion": ["gini", "entropy"]}
+    tree_estimator = tree.DecisionTreeClassifier()
+
+    grid_tree = GridSearchCV(
+        tree_estimator,
+        params,
+        cv=parameters["kfold"],
+        scoring="accuracy",
+        n_jobs=1,
+        verbose=False,
+    )
+
+    grid_tree.fit(X_train, y_train)
+
+    cv_results = {
+        "mean_scores": grid_tree.cv_results_["mean_test_score"],
+        "std_scores": grid_tree.cv_results_["std_test_score"],
+        "params": grid_tree.cv_results_["params"],
+    }
+
+    best_params = grid_tree.best_params_
+
+    tuned_model = tree.DecisionTreeClassifier(
+        max_depth=best_params["max_depth"], criterion="gini"
+    )
+    model_fit(
+        tuned_model,
+        X_train,
+        y_train,
+        printFeatureImportance=True,
+    )
+
+    return {
+        "best_model": tuned_model,
+        "best_params": best_params,
+        "cv_results": cv_results,
+    }

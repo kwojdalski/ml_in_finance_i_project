@@ -10,7 +10,6 @@ from .nodes import (
     load_data,
     preprocess_data,
     remove_duplicated_columns,
-    split_data,
 )
 
 
@@ -117,13 +116,6 @@ def create_pipeline(**kwargs) -> Pipeline:
                 ],
                 name="remove_duplicated_columns_node",
                 tags=["data_cleaning"],
-            ),
-            node(
-                func=split_data,
-                inputs=["train_df_rm_duplicates", "params:model_options"],
-                outputs=["X_train", "X_test", "y_train", "y_test"],
-                name="split_data_node",
-                tags=["data_splitting"],
             ),
         ]
     )

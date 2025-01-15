@@ -1,6 +1,7 @@
 from kedro.pipeline import Pipeline, node, pipeline
 
 from .nodes import (
+    aggregate_model_results,
     feature_importance,
     plot_correlation_matrix,
     plot_model_accuracy,
@@ -55,6 +56,24 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=["train_df", "params:example_row_id"],
                 outputs="returns_volume_plot",
                 name="plot_returns_volume_node",
+                tags=["reporting", "visualization"],
+            ),
+            node(
+                func=aggregate_model_results,
+                inputs=[
+                    "base_dt",
+                    "grid_dt",
+                    "n_estimators_result",
+                    "tree_params_result",
+                    "leaf_params_result",
+                    "max_features_result",
+                    "nn_model",
+                    "X_test",
+                    "y_test",
+                    "X_test_sl",
+                ],
+                outputs="model_results_dict",
+                name="aggregate_model_results_node",
                 tags=["reporting", "visualization"],
             ),
             node(

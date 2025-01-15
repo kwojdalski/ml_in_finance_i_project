@@ -32,13 +32,10 @@ def feature_importance(model, features: list[str], threshold: float = 0.01):
         {"feature": features, "importance": model.feature_importances_}
     )
 
-    # Sort by importance
     feature_importances = feature_importances.sort_values("importance", ascending=True)
 
-    # Create plot
+    # Create bar plot
     fig = go.Figure()
-
-    # Add bar trace
     fig.add_trace(
         go.Bar(
             x=feature_importances["importance"],
@@ -48,20 +45,41 @@ def feature_importance(model, features: list[str], threshold: float = 0.01):
         )
     )
 
-    # Add threshold line
-    fig.add_hline(
-        y=-0.5, x=threshold, line_dash="dash", line_color="red", line=dict(width=2)
-    )
-
     # Update layout
     fig.update_layout(
         title="Feature Importance",
         xaxis_title="Importance",
         yaxis_title="Features",
-        height=800,
-        width=1000,
+        height=max(400, len(feature_importances) * 20),
+        width=800,
         showlegend=False,
     )
+
+    # Create plot
+    # fig = go.Figure()
+
+    # # Add bar trace
+    # fig.add_trace(
+    #     go.Bar(
+    #         x=feature_importances["importance"],
+    #         y=feature_importances["feature"],
+    #         orientation="h",
+    #         marker_color="steelblue",
+    #     )
+    # )
+
+    # # Add threshold line as vertical line
+    # fig.add_vline(x=threshold, line_dash="dash", line_color="red", line_width=2)
+
+    # # Update layout
+    # fig.update_layout(
+    #     title="Feature Importance",
+    #     xaxis_title="Importance",
+    #     yaxis_title="Features",
+    #     height=1200,
+    #     width=1000,
+    #     showlegend=False,
+    # )
 
     return fig
 
@@ -396,3 +414,69 @@ def simulate_strategy(y_test, y_predict, n_simulations=1000, n_days=100):
     )
 
     return fig
+
+
+def evaluate_models(models, X_test, y_test):
+    """Evaluate all trained models and return dictionary of accuracy scores.
+
+    Args:
+        models (dict): Dictionary mapping model names to model objects
+        X_test: Test features
+        y_test: Test labels
+
+    Returns:
+        dict: Dictionary mapping model names to accuracy scores
+    """
+
+    results = {}
+
+    for name, model in models.items():
+        if hasattr(model, "best_estimator_"):
+            # For grid search results
+            score = model.best_estimator_.score(X_test, y_test)
+        elif hasattr(model, "score"):
+            # For sklearn models
+            score = model.score(X_test, y_test)
+        else:
+            # For neural network or other models
+            score = accuracy_score(y_test, model)
+
+        results[name] = score
+
+    return results
+
+
+def aggregate_model_results(
+    base_dt=None,
+    grid_dt=None,
+    n_estimators_result=None,
+    tree_params_result=None,
+    leaf_params_result=None,
+    max_features_result=None,
+    nn_model=None,
+    X_test=None,
+    y_test=None,
+    X_test_sl=None,
+) -> dict:
+    """Aggregate model results into a dictionary.
+
+    Args:
+        base_dt: Base decision tree model
+        grid_dt: Tuned decision tree model
+        n_estimators_result: Gradient boosting results
+        tree_params_result: Gradient boosting results
+        leaf_params_result: Gradient boosting results
+        max_features_result: Gradient boosting results
+        nn_model: Neural network model
+
+    Returns:
+        Dictionary containing the trained models
+    """
+    return {
+        "Decision Tree (Base)": base_dt.score(X_test, y_test),
+        "Decision Tree (Tuned)": grid_dt.score(X_test_sl, y_test),
+        "GB (n_estimators)": n_estimators_result.score(X_test, y_test),
+        "GB (+ tree params)": tree_params_result.score(X_test, y_test),
+        "GB (+ leaf params)": leaf_params_result.score(X_test, y_test),
+        "GB (+ max features)": max_features_result.score(X_test, y_test),
+    }

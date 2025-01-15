@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 from kedro.config import OmegaConfigLoader
 from pyspark.sql import DataFrame as SparkDataFrame
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 
 from ta_indicators import calculate_all_ta_indicators
@@ -275,24 +274,6 @@ def filter_infinity_values(
     test_filtered = test[test_available_features]
 
     return train_filtered, test_filtered, filtered_features
-
-
-def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
-    """Splits data into features and targets training and test sets.
-
-    Args:
-        data: Data containing features and target.
-        parameters: Parameters defined in parameters/data_science.yml.
-    Returns:
-        Split data.
-    """
-    X = data[parameters["features"]]
-    y = data["RET"]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=parameters["test_size"], random_state=parameters["random_state"]
-    )
-
-    return X_train, X_test, y_train, y_test
 
 
 def calculate_technical_indicators(
