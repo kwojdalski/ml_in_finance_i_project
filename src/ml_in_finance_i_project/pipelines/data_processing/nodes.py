@@ -257,25 +257,27 @@ def filter_infinity_values(
     cols = list(set(train.columns) | set(test.columns))
 
     # Get columns with infinity values in train dataset
-    def _get_infinity_columns(df: pd.DataFrame) -> pd.Index:
+    def _get_inf_cols(df: pd.DataFrame) -> pd.Index:
         return df.columns[df.isin([np.inf, -np.inf]).any()]
 
-    inf_cols_train = _get_infinity_columns(train)
-    inf_cols_test = _get_infinity_columns(test)
-    inf_columns_combined_list = list(set(inf_cols_train) | set(inf_cols_test))
+    inf_train = _get_inf_cols(train)
+    inf_test = _get_inf_cols(test)
+    inf_cols = list(set(inf_train) | set(inf_test))
 
     # Filter out features containing infinities from train and test
-    filtered_features = [col for col in cols if col not in inf_columns_combined_list]
-    log.debug(f"Features after filtering infinities: {filtered_features + [target]}")
+    filt_feats = [col for col in cols if col not in inf_cols]
+    log.debug(f"Features after filtering infinities: {filt_feats + [target]}")
     # Filter to only include columns that exist in both dataframes
-    train_available_features = [f for f in filtered_features if f in train.columns]
-    test_available_features = [f for f in filtered_features if f in test.columns]
-    if set(train_available_features) != set(test_available_features):
+    train_feats = [f for f in filt_feats if f in train.columns]
+    test_feats = [f for f in filt_feats if f in test.columns]
+    if set(train_feats) != set(test_feats):
         log.warning("Train and test datasets have different available features")
-    train_filtered = train[train_available_features + [target]]
-    test_filtered = test[test_available_features]
 
-    return train_filtered, test_filtered, filtered_features
+    train_feats = train_feats + (target if isinstance(target, list) else [target])
+    train_filt = train[train_feats]
+    test_filt = test[test_feats]
+
+    return train_filt, test_filt, filt_feats
 
 
 def calculate_technical_indicators(

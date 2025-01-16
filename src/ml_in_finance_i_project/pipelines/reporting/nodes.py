@@ -408,10 +408,7 @@ def evaluate_models(models, X_test, y_test):
 def aggregate_model_results(
     base_dt=None,
     grid_dt=None,
-    n_estimators_result=None,
-    tree_params_result=None,
-    leaf_params_result=None,
-    max_features_result=None,
+    tuned_gb=None,
     nn_model=None,
     X_test=None,
     y_test=None,
@@ -422,10 +419,7 @@ def aggregate_model_results(
     Args:
         base_dt: Base decision tree model
         grid_dt: Tuned decision tree model
-        n_estimators_result: Gradient boosting results
-        tree_params_result: Gradient boosting results
-        leaf_params_result: Gradient boosting results
-        max_features_result: Gradient boosting results
+        tuned_gb: Tuned gradient boosting model
         nn_model: Neural network model
 
     Returns:
@@ -434,8 +428,8 @@ def aggregate_model_results(
     return {
         "Decision Tree (Base)": base_dt.score(X_test, y_test),
         "Decision Tree (Tuned)": grid_dt.score(X_test_sl, y_test),
-        "GB (n_estimators)": n_estimators_result.score(X_test, y_test),
-        "GB (+ tree params)": tree_params_result.score(X_test, y_test),
-        "GB (+ leaf params)": leaf_params_result.score(X_test, y_test),
-        "GB (+ max features)": max_features_result.score(X_test, y_test),
+        "GB (n_estimators)": tuned_gb["n_estimators_result"].score(X_test, y_test),
+        "GB (+ tree params)": tuned_gb["tree_params_result"].score(X_test, y_test),
+        "GB (+ leaf params)": tuned_gb["leaf_params_result"].score(X_test, y_test),
+        "GB (+ max features)": tuned_gb["max_features_result"].score(X_test, y_test),
     }

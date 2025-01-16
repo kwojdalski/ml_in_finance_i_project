@@ -127,6 +127,14 @@ y_test:
   filepath: data/05_model_input/y_test.pkl
   type: pickle.PickleDataset
 
+X_train_clean:
+  filepath: data/05_model_input/X_train_clean.pkl
+  type: pickle.PickleDataset
+
+X_test_clean:
+  filepath: data/05_model_input/X_test_clean.pkl
+  type: pickle.PickleDataset
+
 train_df_processed:
   filepath: data/05_model_input/processed_train_df.pkl
   type: pickle.PickleDataset
@@ -218,3 +226,47 @@ model_accuracy_plot:
   type: plotly.JSONDataset
   filepath: data/08_reporting/model_accuracy.json
   versioned: true
+
+base_dt:
+  filepath: data/06_models/base_dt.pkl
+  type: pickle.PickleDataset
+
+grid_dt:
+  filepath: data/06_models/grid_dt.pkl
+  type: pickle.PickleDataset
+
+base_gb:
+  filepath: data/06_models/base_gb.pkl
+  type: pickle.PickleDataset
+
+tuned_gb:
+  filepath: data/06_models/tuned_gb.pkl
+  type: pickle.PickleDataset
+
+y_predict:
+  filepath: data/07_model_output/y_predict.csv
+  type: pandas.CSVDataset
+
+features:
+  filepath: data/07_model_output/features.json
+  type: json.JSONDataset
+
+model:
+  filepath: data/06_models/model.pkl
+  type: pickle.PickleDataset
+
+model_results:
+  filepath: data/07_model_output/model_results.json
+  type: json.JSONDataset
+
+nn_model:
+  filepath: data/06_models/nn_model.pkl
+  type: pickle.PickleDataset
+
+cleaned_train:
+  filepath: data/02_intermediate/cleaned_train.csv
+  type: pandas.CSVDataset
+
+X_test_sl:
+  filepath: data/05_model_input/X_test_sl.csv
+  type: pandas.CSVDataset

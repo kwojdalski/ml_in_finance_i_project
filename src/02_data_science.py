@@ -105,14 +105,21 @@ out10 = run_pipeline_node(
     },
 )
 # %%
-X_train = out10["X_train"]
-X_test = out10["X_test"]
-y_train = out10["y_train"]
-y_test = out10["y_test"]
-nan_mask = X_train.isna().any(axis=1)
-X_train = X_train[~nan_mask]
-y_train = y_train[~nan_mask]
+out11 = run_pipeline_node(
+    "data_science",
+    "remove_nan_rows_node",
+    {
+        "X_train": out10["X_train"],
+        "X_test": out10["X_test"],
+        "y_train": out10["y_train"],
+        "y_test": out10["y_test"],
+    },
+)
 
+X_train = out11["X_train_clean"]
+X_test = out11["X_test_clean"]
+y_train = out11["y_train_clean"]
+y_test = out11["y_test_clean"]
 # %% [markdown]
 # ### Decison tree baseline model
 # %%
@@ -120,10 +127,10 @@ base_dt = run_pipeline_node(
     "data_science",
     "train_decision_tree_node",
     {
-        "X_train": X_train,
-        "y_train": y_train,
+        "X_train_clean": X_train,
+        "y_train_clean": y_train,
     },
-)["dt_model"]
+)["base_dt"]
 
 # %% [markdown]
 # ### Fit the base model
@@ -141,11 +148,11 @@ tuned_dt = run_pipeline_node(
     "data_science",
     "tune_decision_tree_node",
     {
-        "X_train": X_train,
-        "y_train": y_train,
-        "parameters": conf_params["model_options"],
+        "X_train_clean": X_train,
+        "y_train_clean": y_train,
+        "parameters": conf_params,
     },
-)["tuned_dt_model"]
+)["grid_dt"]
 # %% [markdown]
 # ### Feature selection for the tuned model
 # Based on feature importances
@@ -177,11 +184,11 @@ grid_dt = run_pipeline_node(
     "data_science",
     "tune_decision_tree_node",
     {
-        "X_train": X_train_sl,
-        "y_train": y_train,
-        "parameters": conf_params["model_options"],
+        "X_train_clean": X_train_sl,
+        "y_train_clean": y_train,
+        "parameters": conf_params,
     },
-)
+)["grid_dt"]
 
 # %%
 log.info("Fitting with train set")
@@ -200,11 +207,11 @@ tuned_dt = run_pipeline_node(
         "y_train": y_train,
         "parameters": conf_params["model_options"],
     },
-)
+)["grid_dt"]
 # %%
 log.info("Fitting with test set")
 model_fit(
-    tuned_dt["tuned_dt_model"]["best_model"],
+    tuned_dt["best_model"],
     X_test_sl,
     y_test,
     n_features,
@@ -216,7 +223,7 @@ model_fit(
 # #### Prediction on the test dataframe
 # %%
 X_test_sl = X_test_sl[n_features]
-prediction = grid_dt["tuned_dt_model"]["best_model"].predict(X_test_sl)
+prediction = grid_dt["best_model"].predict(X_test_sl)
 log.info(f"{prediction}")
 
 # %% [markdown]
@@ -235,11 +242,11 @@ gbm_classifier = run_pipeline_node(
     "data_science",
     "train_gradient_boosting_node",
     {
-        "X_train": X_train,
-        "y_train": y_train,
-        "parameters": conf_params["model_options"],
+        "X_train_clean": X_train,
+        "y_train_clean": y_train,
+        "parameters": conf_params,
     },
-)["gb_model"]
+)["base_gb"]
 # %%
 model_fit(
     gbm_classifier.model,
@@ -268,37 +275,33 @@ model_fit(
 # ### Run sequential parameter tuning
 
 # %%
-n_estimators_result = gbm_classifier.tune_n_estimators(X_train, y_train)
+tuned_gb = run_pipeline_node(
+    "data_science",
+    "tune_gradient_boosting_node",
+    {
+        "base_gb": gbm_classifier,
+        "X_train_clean": X_train,
+        "y_train_clean": y_train,
+    },
+)["tuned_gb"]
 
-tree_params_result = gbm_classifier.tune_tree_params(
-    X_train, y_train, {**n_estimators_result.best_params_}
-)
+# %%
+n_estimators_result = tuned_gb["n_estimators_result"]
+tree_params_result = tuned_gb["tree_params_result"]
 
 # %% [markdown]
 # Results from previous run (HistGradientBoostingClassifier):
 # Best: 0.5368177574059928 using {'max_depth': 9, 'min_samples_leaf': 50}
 
 # %%
-leaf_params_result = gbm_classifier.tune_leaf_params(
-    X_train,
-    y_train,
-    {**n_estimators_result.best_params_, **tree_params_result.best_params_},
-)
+leaf_params_result = tuned_gb["leaf_params_result"]
+
 # %% [markdown]
 # Best (simple TA): 0.578087598675834 using {'l2_regularization': 0.001}
 # #### Use the model with best parameters
 
 # %%
-max_features_result = gbm_classifier.tune_max_features(
-    X_train,
-    y_train,
-    {
-        **n_estimators_result.best_params_,
-        **tree_params_result.best_params_,
-        **leaf_params_result.best_params_,
-    },
-)
-
+max_features_result = tuned_gb["max_features_result"]
 # %%
 model_fit(
     max_features_result.best_estimator_,
@@ -346,9 +349,9 @@ nn_model = run_pipeline_node(
     "data_science",
     "train_neural_network_node",
     {
-        "X_train": X_train,
-        "y_train": y_train,
-        "parameters": conf_params["model_options"],
+        "X_train_clean": X_train,
+        "y_train_clean": y_train,
+        "parameters": conf_params,
     },
 )["nn_model"]
 
@@ -369,11 +372,8 @@ model_results = run_pipeline_node(
     "aggregate_model_results_node",
     {
         "base_dt": base_dt,
-        "grid_dt": grid_dt["tuned_dt_model"]["best_model"],
-        "n_estimators_result": n_estimators_result,
-        "tree_params_result": tree_params_result,
-        "leaf_params_result": leaf_params_result,
-        "max_features_result": max_features_result,
+        "grid_dt": grid_dt["best_model"],
+        "tuned_gb": tuned_gb,
         "nn_model": nn_model,
         "X_test": X_test,
         "y_test": y_test,

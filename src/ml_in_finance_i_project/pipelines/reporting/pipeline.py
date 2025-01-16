@@ -32,7 +32,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=plot_nan_percentages,
-                inputs="cleaned_train",
+                inputs="train_df",
                 outputs="nan_percentages_plot",
                 name="plot_nan_percentages_node",
                 tags=["reporting", "visualization"],
@@ -46,7 +46,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=plot_model_accuracy,
-                inputs="model_results",
+                inputs="model_results_dict",
                 outputs="model_accuracy_plot",
                 name="plot_model_accuracy_node",
                 tags=["reporting", "visualization"],
@@ -63,10 +63,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=[
                     "base_dt",
                     "grid_dt",
-                    "n_estimators_result",
-                    "tree_params_result",
-                    "leaf_params_result",
-                    "max_features_result",
+                    "tuned_gb",
                     "nn_model",
                     "X_test",
                     "y_test",

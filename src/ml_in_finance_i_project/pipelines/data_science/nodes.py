@@ -93,8 +93,8 @@ def train_neural_network(
     X_train_tensor = torch.FloatTensor(X_train)
     y_train_tensor = torch.FloatTensor(y_train.values).reshape(-1, 1)
 
-    n_epochs = parameters["nn_epochs"]
-    batch_size = parameters["batch_size"]
+    n_epochs = parameters["model_options"]["nn_epochs"]
+    batch_size = parameters["model_options"]["batch_size"]
 
     for epoch in range(n_epochs):
         print(f"Epoch {epoch+1}/{n_epochs}")
@@ -168,7 +168,7 @@ def tune_decision_tree(
     grid_tree = GridSearchCV(
         tree_estimator,
         params,
-        cv=parameters["kfold"],
+        cv=parameters["model_options"]["kfold"],
         scoring="accuracy",
         n_jobs=1,
         verbose=False,
@@ -198,4 +198,76 @@ def tune_decision_tree(
         "best_model": tuned_model,
         "best_params": best_params,
         "cv_results": cv_results,
+    }
+
+
+def remove_nan_rows(
+    X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.Series, y_test: pd.Series
+) -> tuple:
+    """Remove rows containing NaN values from training data.
+
+    Args:
+        X_train: Training features
+        X_test: Test features
+        y_train: Training target
+        y_test: Test target
+
+    Returns:
+        Tuple containing cleaned X_train, X_test, y_train, y_test
+    """
+    nan_mask = X_train.isna().any(axis=1)
+    X_train_clean = X_train[~nan_mask]
+    y_train_clean = y_train[~nan_mask]
+
+    return X_train_clean, X_test, y_train_clean, y_test
+
+
+def tune_gradient_boosting(
+    gbm_classifier, X_train_clean: pd.DataFrame, y_train_clean: pd.Series
+) -> dict:
+    """Tune gradient boosting hyperparameters sequentially.
+
+    Args:
+        gbm_classifier: Base gradient boosting classifier
+        X_train: Training features
+        y_train: Training target
+
+    Returns:
+        Dictionary containing tuning results for each parameter group:
+        - n_estimators_result: Results from tuning number of estimators
+        - tree_params_result: Results from tuning tree parameters
+        - leaf_params_result: Results from tuning leaf parameters
+        - max_features_result: Results from tuning max features
+    """
+    # Tune number of estimators
+    n_estimators_result = gbm_classifier.tune_n_estimators(X_train_clean, y_train_clean)
+
+    # Tune tree parameters using best n_estimators
+    tree_params_result = gbm_classifier.tune_tree_params(
+        X_train_clean, y_train_clean, {**n_estimators_result.best_params_}
+    )
+
+    # Tune leaf parameters using best n_estimators and tree params
+    leaf_params_result = gbm_classifier.tune_leaf_params(
+        X_train_clean,
+        y_train_clean,
+        {**n_estimators_result.best_params_, **tree_params_result.best_params_},
+    )
+
+    # Tune max features using all previous best parameters
+    max_features_result = gbm_classifier.tune_max_features(
+        X_train_clean,
+        y_train_clean,
+        {
+            **n_estimators_result.best_params_,
+            **tree_params_result.best_params_,
+            **leaf_params_result.best_params_,
+        },
+    )
+
+    return {
+        "n_estimators_result": n_estimators_result,
+        "tree_params_result": tree_params_result,
+        "leaf_params_result": leaf_params_result,
+        "max_features_result": max_features_result,
     }

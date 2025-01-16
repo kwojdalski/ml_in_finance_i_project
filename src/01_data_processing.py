@@ -271,7 +271,7 @@ out["test_df"].info()
 run_pipeline_node(
     "reporting",
     "plot_nan_percentages_node",
-    {"cleaned_train": out["train_df"]},
+    {"train_df": out["train_df"]},
 )["nan_percentages_plot"]
 
 # %% [markdown]
