@@ -40,14 +40,12 @@ kedro.ipython.load_ipython_extension(get_ipython())
 # %%
 import logging as log
 import sys
-from itertools import compress
 
 import kedro.ipython
 import torch
 from sklearn.metrics import classification_report
 from utils import model_fit
 
-from src.ml_in_finance_i_project.pipelines.reporting.nodes import feature_importance
 from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
 
 
@@ -90,8 +88,7 @@ out9 = get_node_outputs(
 
 # %% [markdown]
 # %%
-# Drop target column if existsand convert to list
-features = out9["train_df_rm_duplicates"].columns.drop(target).tolist()
+
 
 # %% [markdown]
 # ## Train and test set splitting
@@ -153,68 +150,75 @@ tuned_dt = run_pipeline_node(
         "parameters": conf_params,
     },
 )["grid_dt"]
+
 # %% [markdown]
 # ### Feature selection for the tuned model
 # Based on feature importances
-# %%
+# %% [markdown]
 # ## visualize feature importance
-threshold = conf_params["model_options"]["feature_importance_threshold"]
-feature_importance(tuned_dt["best_model"], features, threshold)
+# %%
+run_pipeline_node(
+    "reporting",
+    "plot_feature_importance_node",
+    {
+        "grid_dt": tuned_dt,
+        "X_train_clean": X_train,
+        "params:feature_importance_threshold": conf_params["model_options"][
+            "feature_importance_threshold"
+        ],
+    },
+)["feature_importance_plot"]
 
 # %% [markdown]
 # **filtering out features with less than 1% of feature importance**
 # %%
-n_features = list(
-    compress(
-        features,
-        tuned_dt["best_model"].feature_importances_ >= threshold,
-    )
-)
+# Drop target column if existsand convert to list
 
-# %% [markdown]
-# #### New sets with only the selected features
-# %%
-X_train_sl = X_train.loc[:, X_train[n_features].columns]
-X_test_sl = X_test.loc[:, X_test[n_features].columns]
+out12 = run_pipeline_node(
+    "data_science",
+    "select_important_features_node",
+    {
+        "X_train_clean": X_train,
+        "X_test_clean": X_test,
+        "grid_dt": tuned_dt,
+        "parameters": conf_params,
+    },
+)
+X_train_selected = out12["X_train_selected"]
+X_test_selected = out12["X_test_selected"]
+important_features = out12["important_features"]
 
 # %% [markdown]
 # ### Decision tree tuned model
+# New sets with only the selected features
 # %%
 grid_dt = run_pipeline_node(
     "data_science",
-    "tune_decision_tree_node",
+    "tune_decision_tree_selected_node",
     {
-        "X_train_clean": X_train_sl,
+        "X_train_selected": X_train_selected,
         "y_train_clean": y_train,
         "parameters": conf_params,
     },
-)["grid_dt"]
+)["grid_dt_selected"]
 
 # %%
 log.info("Fitting with train set")
 model_fit(
-    grid_dt["tuned_dt_model"]["best_model"],
-    X_train_sl,
+    grid_dt["best_model"],
+    X_train_selected,
     y_train,
-    n_features,
+    important_features,
     printFeatureImportance=True,
 )
-tuned_dt = run_pipeline_node(
-    "data_science",
-    "tune_decision_tree_node",
-    {
-        "X_train": X_train_sl,
-        "y_train": y_train,
-        "parameters": conf_params["model_options"],
-    },
-)["grid_dt"]
+
 # %%
 log.info("Fitting with test set")
 model_fit(
     tuned_dt["best_model"],
-    X_test_sl,
+    X_test_selected,
     y_test,
-    n_features,
+    important_features,
     printFeatureImportance=False,
     roc=True,
 )
@@ -222,8 +226,8 @@ model_fit(
 # %% [markdown]
 # #### Prediction on the test dataframe
 # %%
-X_test_sl = X_test_sl[n_features]
-prediction = grid_dt["best_model"].predict(X_test_sl)
+
+prediction = grid_dt["best_model"].predict(X_test_selected)
 log.info(f"{prediction}")
 
 # %% [markdown]
@@ -250,9 +254,9 @@ gbm_classifier = run_pipeline_node(
 # %%
 model_fit(
     gbm_classifier.model,
-    X_train_sl,
+    X_train_selected,
     y_train,
-    n_features,
+    important_features,
     roc=True,
     printFeatureImportance=True,
 )
@@ -307,7 +311,7 @@ model_fit(
     max_features_result.best_estimator_,
     X_train,
     y_train,
-    features,
+    important_features,
     roc=True,
     printFeatureImportance=True,
 )
@@ -343,8 +347,6 @@ model_fit(
 # #### Neural Network
 # Preparing standardization and normalization
 # %%
-X_test_tensor = torch.FloatTensor(X_test.values)
-y_test_tensor = torch.FloatTensor(y_test.values).reshape(-1, 1)
 nn_model = run_pipeline_node(
     "data_science",
     "train_neural_network_node",
@@ -355,14 +357,15 @@ nn_model = run_pipeline_node(
     },
 )["nn_model"]
 
+X_test_tensor = torch.FloatTensor(X_test.values)
+y_test_tensor = torch.FloatTensor(y_test.values).reshape(-1, 1)
 with torch.no_grad():
     outputs = nn_model(X_test_tensor)
     # Convert probabilities to binary predictions using 0.5 threshold
     y_predict = (outputs >= 0.5).squeeze().numpy()
 
+# y_predict.to_csv("data/07_model_output/y_predict.csv", index=False)
 print(classification_report(y_test_tensor, y_predict, digits=5))
-
-
 # %% [markdown]
 # Model comparison plot
 # Convert model results to DataFrame for plotting
@@ -377,7 +380,7 @@ model_results = run_pipeline_node(
         "nn_model": nn_model,
         "X_test": X_test,
         "y_test": y_test,
-        "X_test_sl": X_test_sl,
+        "X_test_selected": X_test_selected,
     },
 )["model_results_dict"]
 

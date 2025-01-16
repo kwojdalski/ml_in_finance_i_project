@@ -25,7 +25,11 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=feature_importance,
-                inputs=["model", "features", "params:feature_importance_threshold"],
+                inputs=[
+                    "grid_dt",
+                    "X_train_clean",
+                    "params:feature_importance_threshold",
+                ],
                 outputs="feature_importance_plot",
                 name="plot_feature_importance_node",
                 tags=["reporting", "visualization"],
@@ -67,7 +71,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "nn_model",
                     "X_test",
                     "y_test",
-                    "X_test_sl",
+                    "X_test_selected",
                 ],
                 outputs="model_results_dict",
                 name="aggregate_model_results_node",

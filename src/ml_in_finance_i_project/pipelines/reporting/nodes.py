@@ -16,7 +16,7 @@ sys.path.append(str(path))
 from utils import CAT_COLS, ID_COLS
 
 
-def feature_importance(model, features: list[str], threshold: float = 0.01):
+def feature_importance(model, X_train_clean: pd.DataFrame, threshold: float = 0.01):
     """
     Create a bar plot showing the importance of each feature in the model.
 
@@ -28,8 +28,9 @@ def feature_importance(model, features: list[str], threshold: float = 0.01):
         plotly.graph_objects.Figure: A plotly figure containing the feature importance plot
     """
     # Create dataframe with feature importances
+    features = X_train_clean.drop(columns=["RET"], errors="ignore").columns.tolist()
     feature_importances = pd.DataFrame(
-        {"feature": features, "importance": model.feature_importances_}
+        {"feature": features, "importance": model["best_model"].feature_importances_}
     )
 
     feature_importances = feature_importances.sort_values("importance", ascending=True)
@@ -412,7 +413,7 @@ def aggregate_model_results(
     nn_model=None,
     X_test=None,
     y_test=None,
-    X_test_sl=None,
+    X_test_selected=None,
 ) -> dict:
     """Aggregate model results into a dictionary.
 
@@ -427,7 +428,7 @@ def aggregate_model_results(
     """
     return {
         "Decision Tree (Base)": base_dt.score(X_test, y_test),
-        "Decision Tree (Tuned)": grid_dt.score(X_test_sl, y_test),
+        "Decision Tree (Tuned)": grid_dt["best_model"].score(X_test, y_test),
         "GB (n_estimators)": tuned_gb["n_estimators_result"].score(X_test, y_test),
         "GB (+ tree params)": tuned_gb["tree_params_result"].score(X_test, y_test),
         "GB (+ leaf params)": tuned_gb["leaf_params_result"].score(X_test, y_test),

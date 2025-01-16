@@ -2,6 +2,7 @@ from kedro.pipeline import Pipeline, node, pipeline
 
 from .nodes import (
     remove_nan_rows,
+    select_important_features,
     split_data,
     train_decision_tree,
     train_gradient_boosting,
@@ -45,6 +46,19 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=["X_train_clean", "y_train_clean", "parameters"],
                 outputs="grid_dt",
                 name="tune_decision_tree_node",
+                tags=["model_tuning", "decision_tree"],
+            ),
+            node(
+                func=select_important_features,
+                inputs=["X_train_clean", "X_test_clean", "grid_dt", "parameters"],
+                outputs=["X_train_selected", "X_test_selected", "important_features"],
+                name="select_important_features_node",
+            ),
+            node(
+                func=tune_decision_tree,
+                inputs=["X_train_selected", "y_train_clean", "parameters"],
+                outputs="grid_dt_selected",
+                name="tune_decision_tree_selected_node",
                 tags=["model_tuning", "decision_tree"],
             ),
             node(

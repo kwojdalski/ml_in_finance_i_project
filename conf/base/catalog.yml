@@ -267,6 +267,62 @@ cleaned_train:
   filepath: data/02_intermediate/cleaned_train.csv
   type: pandas.CSVDataset
 
-X_test_sl:
-  filepath: data/05_model_input/X_test_sl.csv
-  type: pandas.CSVDataset
+X_test_selected:
+  filepath: data/05_model_input/X_test_selected.pkl
+  type: pickle.PickleDataset
+
+X_train_selected:
+  filepath: data/05_model_input/X_train_selected.pkl
+  type: pickle.PickleDataset
+
+y_train_clean:
+  filepath: data/05_model_input/y_train_clean.pkl
+  type: pickle.PickleDataset
+
+y_test_clean:
+  filepath: data/05_model_input/y_test_clean.pkl
+  type: pickle.PickleDataset
+
+grid_dt_selected:
+  filepath: data/06_models/grid_dt_selected.pkl
+  type: pickle.PickleDataset
+
+tuned_dt_model:
+  filepath: data/06_models/tuned_dt_model.pkl
+  type: pickle.PickleDataset
+
+# Statistical features
+train_df_statistical_features:
+  filepath: data/04_feature/train_df_statistical_features.pkl
+  type: pickle.PickleDataset
+
+test_df_statistical_features:
+  filepath: data/04_feature/test_df_statistical_features.pkl
+  type: pickle.PickleDataset
+
+statistical_features:
+  filepath: data/07_model_output/statistical_features.pkl
+  type: pickle.PickleDataset
+
+# Feature lists
+features_filtered:
+  filepath: data/07_model_output/features_filtered.pkl
+  type: pickle.PickleDataset
+
+features_rm_duplicates:
+  filepath: data/07_model_output/features_rm_duplicates.pkl
+  type: pickle.PickleDataset
+
+important_features:
+  filepath: data/07_model_output/important_features.pkl
+  type: pickle.PickleDataset
+
+# Model results
+model_results_dict:
+  filepath: data/07_model_output/model_results_dict.pkl
+  type: pickle.PickleDataset
+
+# Strategy simulation
+strategy_simulation:
+  filepath: data/08_reporting/strategy_simulation.json
+  type: plotly.JSONDataset

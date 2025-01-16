@@ -1,3 +1,5 @@
+from itertools import compress
+
 import numpy as np
 import pandas as pd
 import torch
@@ -271,3 +273,36 @@ def tune_gradient_boosting(
         "leaf_params_result": leaf_params_result,
         "max_features_result": max_features_result,
     }
+
+
+def select_important_features(
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    grid_dt: dict,
+    parameters: dict,
+) -> tuple[pd.DataFrame, pd.DataFrame, list]:
+    """
+    Select features based on importance threshold from decision tree model.
+
+    Args:
+        X_train: Training features
+        X_test: Test features
+        grid_dt: Tuned decision tree model dictionary
+        features: List of feature names
+
+    Returns:
+        Tuple of filtered training and test datasets
+    """
+    threshold = parameters["model_options"]["feature_importance_threshold"]
+    features = X_train.columns.drop(parameters["target"], errors="ignore").tolist()
+    important_features = list(
+        compress(
+            features,
+            grid_dt["best_model"].feature_importances_ >= threshold,
+        )
+    )
+
+    X_train_selected = X_train.loc[:, important_features]
+    X_test_selected = X_test.loc[:, important_features]
+
+    return X_train_selected, X_test_selected, important_features
