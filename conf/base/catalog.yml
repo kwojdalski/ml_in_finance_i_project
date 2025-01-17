@@ -121,22 +121,6 @@ y_test:
   filepath: data/05_model_input/y_test.pkl
   type: pickle.PickleDataset
 
-X_train_clean:
-  filepath: data/05_model_input/X_train_clean.pkl
-  type: pickle.PickleDataset
-
-X_test_clean:
-  filepath: data/05_model_input/X_test_clean.pkl
-  type: pickle.PickleDataset
-
-y_train_clean:
-  filepath: data/05_model_input/y_train_clean.pkl
-  type: pickle.PickleDataset
-
-y_test_clean:
-  filepath: data/05_model_input/y_test_clean.pkl
-  type: pickle.PickleDataset
-
 base_dt:
   filepath: data/06_models/base_dt.pkl
   type: pickle.PickleDataset
@@ -206,3 +190,10 @@ strategy_simulation_plot:
   filepath: data/08_reporting/strategy_simulation.json
   versioned: true
 
+X_test_selected:
+  filepath: data/05_model_input/X_test_selected.pkl
+  type: pickle.PickleDataset
+
+y_predict:
+  filepath: data/07_model_output/y_predict.csv
+  type: pandas.CSVDataset

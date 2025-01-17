@@ -8,6 +8,7 @@ from .nodes import (
     filter_infinity_values,
     load_and_preprocess_data,
     remove_duplicated_columns,
+    remove_nan_rows,
 )
 
 
@@ -100,6 +101,18 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "features_rm_duplicates",
                 ],
                 name="remove_duplicated_columns_node",
+                tags=["data_cleaning"],
+            ),
+            node(
+                func=remove_nan_rows,
+                inputs=["X_train", "X_test", "y_train", "y_test"],
+                outputs=[
+                    "X_train_clean",
+                    "X_test_clean",
+                    "y_train_clean",
+                    "y_test_clean",
+                ],
+                name="remove_nan_rows_node",
                 tags=["data_cleaning"],
             ),
         ]

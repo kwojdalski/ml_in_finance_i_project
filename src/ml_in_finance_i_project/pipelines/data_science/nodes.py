@@ -5,7 +5,6 @@ import pandas as pd
 import torch
 from GBClassifierGridSearch import HistGBClassifierGridSearch
 from sklearn import tree
-from sklearn.impute import KNNImputer
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch import nn
@@ -61,12 +60,10 @@ def train_gradient_boosting(
     Returns:
         Trained gradient boosting model
     """
-    # Keep original gradient boosting code
     gbm_classifier = HistGBClassifierGridSearch()
     features = [col for col in X_train.columns if col != parameters["target"]]
     x_train = X_train[features]
     gbm_classifier.run(x_train, y_train)
-
     return gbm_classifier
 
 
@@ -82,7 +79,6 @@ def train_neural_network(
     Returns:
         Trained neural network model
     """
-    # Keep original neural network code
     features = [col for col in X_train.columns if col != parameters["target"]]
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
@@ -91,7 +87,6 @@ def train_neural_network(
     criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(nn_model.parameters())
 
-    # Keep original training loop
     X_train_tensor = torch.FloatTensor(X_train)
     y_train_tensor = torch.FloatTensor(y_train.values).reshape(-1, 1)
 
@@ -167,35 +162,8 @@ def tune_decision_tree(
     }
 
 
-def remove_nan_rows(
-    X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.Series, y_test: pd.Series
-) -> tuple:
-    """Remove rows containing NaN values from training data.
-
-    Args:
-        X_train: Training features
-        X_test: Test features
-        y_train: Training target
-        y_test: Test target
-
-    Returns:
-        Tuple containing cleaned X_train, X_test, y_train, y_test
-    """
-    nan_mask = X_train.isna().any(axis=1)
-    X_train_clean = X_train[~nan_mask]
-    y_train_clean = y_train[~nan_mask]
-    # Fill NaN values in test set using nearest neighbor imputation
-
-    imputer = KNNImputer(n_neighbors=5)
-    X_test_clean = pd.DataFrame(
-        imputer.fit_transform(X_test), columns=X_test.columns, index=X_test.index
-    )
-
-    return X_train_clean, X_test_clean, y_train_clean, y_test
-
-
 def tune_gradient_boosting(
-    gbm_classifier, X_train_clean: pd.DataFrame, y_train_clean: pd.Series
+    gbm_classifier, X_train: pd.DataFrame, y_train: pd.Series
 ) -> dict:
     """Tune gradient boosting hyperparameters sequentially.
 
@@ -212,24 +180,24 @@ def tune_gradient_boosting(
         - max_features_result: Results from tuning max features
     """
     # Tune number of estimators
-    n_estimators_result = gbm_classifier.tune_n_estimators(X_train_clean, y_train_clean)
+    n_estimators_result = gbm_classifier.tune_n_estimators(X_train, y_train)
 
     # Tune tree parameters using best n_estimators
     tree_params_result = gbm_classifier.tune_tree_params(
-        X_train_clean, y_train_clean, {**n_estimators_result.best_params_}
+        X_train, y_train, {**n_estimators_result.best_params_}
     )
 
     # Tune leaf parameters using best n_estimators and tree params
     leaf_params_result = gbm_classifier.tune_leaf_params(
-        X_train_clean,
-        y_train_clean,
+        X_train,
+        y_train,
         {**n_estimators_result.best_params_, **tree_params_result.best_params_},
     )
 
     # Tune max features using all previous best parameters
     max_features_result = gbm_classifier.tune_max_features(
-        X_train_clean,
-        y_train_clean,
+        X_train,
+        y_train,
         {
             **n_estimators_result.best_params_,
             **tree_params_result.best_params_,

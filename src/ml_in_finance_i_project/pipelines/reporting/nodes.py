@@ -492,7 +492,7 @@ def aggregate_model_results(
     grid_dt: Optional[Dict[str, Any]] = None,
     tuned_gb: Optional[Dict[str, Any]] = None,
     nn_model: Optional[Any] = None,
-    X_test_clean: Optional[np.ndarray] = None,
+    X_test: Optional[np.ndarray] = None,
     y_test: Optional[np.ndarray] = None,
     X_test_selected: Optional[np.ndarray] = None,
 ) -> dict:
@@ -503,7 +503,7 @@ def aggregate_model_results(
         grid_dt: Tuned decision tree model dictionary
         tuned_gb: Tuned gradient boosting model dictionary
         nn_model: Neural network model
-        X_test_clean: Cleaned test features
+        X_test: Test features
         y_test: Test target
         X_test_selected: Selected test features
 
@@ -513,21 +513,21 @@ def aggregate_model_results(
     all_metrics = {}
 
     # Base Decision Tree
-    if base_dt is not None and X_test_clean is not None:
-        y_pred, y_proba = get_model_predictions(base_dt, X_test_clean)
+    if base_dt is not None and X_test is not None:
+        y_pred, y_proba = get_model_predictions(base_dt, X_test)
         base_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
         all_metrics["base_decision_tree"] = calculate_benchmark_metrics(base_metrics)
 
     # Tuned Decision Tree
-    if grid_dt is not None and X_test_clean is not None:
-        y_pred, y_proba = get_model_predictions(grid_dt["best_model"], X_test_clean)
+    if grid_dt is not None and X_test is not None:
+        y_pred, y_proba = get_model_predictions(grid_dt["best_model"], X_test)
         tuned_dt_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
         all_metrics["tuned_decision_tree"] = calculate_benchmark_metrics(
             tuned_dt_metrics
         )
 
     # Gradient Boosting stages
-    if tuned_gb is not None and X_test_clean is not None:
+    if tuned_gb is not None and X_test is not None:
         gb_stages = {
             "gb_n_estimators": tuned_gb["n_estimators_result"],
             "gb_tree_params": tuned_gb["tree_params_result"],
@@ -536,22 +536,20 @@ def aggregate_model_results(
         }
 
         for stage_name, model in gb_stages.items():
-            y_pred, y_proba = get_model_predictions(model, X_test_clean)
+            y_pred, y_proba = get_model_predictions(model, X_test)
             stage_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
             all_metrics[stage_name] = calculate_benchmark_metrics(stage_metrics)
 
     # Neural Network
-    if nn_model is not None and X_test_clean is not None:
-        y_pred, y_proba = get_model_predictions(
-            nn_model, X_test_clean, is_torch_model=True
-        )
+    if nn_model is not None and X_test is not None:
+        y_pred, y_proba = get_model_predictions(nn_model, X_test, is_torch_model=True)
         nn_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
         all_metrics["neural_network"] = calculate_benchmark_metrics(nn_metrics)
 
     # Add metadata
     all_metrics["metadata"] = {
         "n_test_samples": len(y_test),
-        "n_features": X_test_clean.shape[1],
+        "n_features": X_test.shape[1],
         "n_features_selected": X_test_selected.shape[1]
         if X_test_selected is not None
         else None,

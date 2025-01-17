@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 from kedro.config import OmegaConfigLoader
 from pyspark.sql import DataFrame as SparkDataFrame
+from sklearn.impute import KNNImputer
 from sklearn.preprocessing import LabelEncoder
-
 from ta_indicators import calculate_all_ta_indicators
 
 conf_loader = OmegaConfigLoader(".", base_env="", default_run_env="")
@@ -321,3 +321,30 @@ def calculate_statistical_features(
                     data[name] = data.groupby(gb_feature)[feat].transform(stat)
 
     return train_df, test_df, new_features
+
+
+def remove_nan_rows(
+    X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.Series, y_test: pd.Series
+) -> tuple:
+    """Remove rows containing NaN values from training data.
+
+    Args:
+        X_train: Training features
+        X_test: Test features
+        y_train: Training target
+        y_test: Test target
+
+    Returns:
+        Tuple containing cleaned X_train, X_test, y_train, y_test
+    """
+    nan_mask = X_train.isna().any(axis=1)
+    X_train_clean = X_train[~nan_mask]
+    y_train_clean = y_train[~nan_mask]
+    # Fill NaN values in test set using nearest neighbor imputation
+
+    imputer = KNNImputer(n_neighbors=5)
+    X_test_clean = pd.DataFrame(
+        imputer.fit_transform(X_test), columns=X_test.columns, index=X_test.index
+    )
+
+    return X_train_clean, X_test_clean, y_train_clean, y_test
