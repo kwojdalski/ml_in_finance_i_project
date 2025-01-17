@@ -1,1 +1,1 @@
-{"X_test": {"rows": 78540, "columns": 120, "file_size": 76029188}, "X_test_selected": {"rows": 78540, "columns": 22, "file_size": 14452550}, "train_df": {"rows": 418595, "columns": 49, "file_size": 161160499}, "X_train_clean": {"rows": 234570, "columns": 120, "file_size": 227066228}, "y_predict": {"rows": 78540, "columns": 1, "file_size": 1963525}}
+{"X_test_clean": {"rows": 78540, "columns": 120, "file_size": 76029188}, "X_test_selected": {"rows": 78540, "columns": 21, "file_size": 13824203}}

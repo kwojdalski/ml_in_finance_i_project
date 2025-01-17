@@ -143,24 +143,6 @@ test_df_processed:
   filepath: data/05_model_input/processed_test_df.pkl
   type: pickle.PickleDataset
 
-model_test_df:
-  filepath: data/05_model_input/processed_test_df.pkl
-  type: pickle.PickleDataset
-  load_args:
-    header: True
-    inferSchema: True
-  save_args:
-    mode: overwrite
-
-model_train_df:
-  filepath: data/05_model_input/processed_train_df.pkl
-  type: pickle.PickleDataset
-  load_args:
-    header: True
-    inferSchema: True
-  save_args:
-    mode: overwrite
-
 feature_importance_plot:
   type: plotly.JSONDataset
   filepath: data/08_reporting/feature_importance.json
@@ -185,8 +167,9 @@ gradient_boosting_model:
   type: pickle.PickleDataset
 
 model_metrics:
-  filepath: data/08_reporting/model_metrics.json
+  filepath: data/07_model_output/model_metrics.json
   type: json.JSONDataset
+  versioned: true
 
 model_predictions:
   filepath: data/07_model_output/predictions.csv
@@ -251,10 +234,6 @@ features:
   filepath: data/07_model_output/features.json
   type: json.JSONDataset
 
-model:
-  filepath: data/06_models/model.pkl
-  type: pickle.PickleDataset
-
 model_results:
   filepath: data/07_model_output/model_results.json
   type: json.JSONDataset
@@ -262,10 +241,6 @@ model_results:
 nn_model:
   filepath: data/06_models/nn_model.pkl
   type: pickle.PickleDataset
-
-cleaned_train:
-  filepath: data/02_intermediate/cleaned_train.csv
-  type: pandas.CSVDataset
 
 X_test_selected:
   filepath: data/05_model_input/X_test_selected.pkl
@@ -326,3 +301,10 @@ model_results_dict:
 strategy_simulation:
   filepath: data/08_reporting/strategy_simulation.json
   type: plotly.JSONDataset
+
+
+all_metrics:
+  type: tracking.MetricsDataset
+  filepath: data/09_tracking/all_metrics.json
+  versioned: true
+

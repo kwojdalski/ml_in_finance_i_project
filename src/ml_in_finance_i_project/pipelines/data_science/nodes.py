@@ -5,6 +5,7 @@ import pandas as pd
 import torch
 from GBClassifierGridSearch import HistGBClassifierGridSearch
 from sklearn import tree
+from sklearn.impute import KNNImputer
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
@@ -220,8 +221,14 @@ def remove_nan_rows(
     nan_mask = X_train.isna().any(axis=1)
     X_train_clean = X_train[~nan_mask]
     y_train_clean = y_train[~nan_mask]
+    # Fill NaN values in test set using nearest neighbor imputation
 
-    return X_train_clean, X_test, y_train_clean, y_test
+    imputer = KNNImputer(n_neighbors=5)
+    X_test_clean = pd.DataFrame(
+        imputer.fit_transform(X_test), columns=X_test.columns, index=X_test.index
+    )
+
+    return X_train_clean, X_test_clean, y_train_clean, y_test
 
 
 def tune_gradient_boosting(

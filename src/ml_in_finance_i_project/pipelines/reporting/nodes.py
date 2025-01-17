@@ -2,12 +2,24 @@
 import logging as log
 import sys
 from pathlib import Path
+from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 import plotly.express as px  # noqa:  F401
 import plotly.graph_objects as go
-from sklearn.metrics import accuracy_score
+import torch
+from sklearn.metrics import (
+    accuracy_score,
+    average_precision_score,
+    balanced_accuracy_score,
+    brier_score_loss,
+    f1_score,
+    log_loss,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 
 sys.path
 path = Path(__file__).parent.parent.parent
@@ -406,31 +418,181 @@ def evaluate_models(models, X_test, y_test):
     return results
 
 
+def calculate_model_metrics(
+    y_true: np.ndarray, y_pred: np.ndarray, y_proba: np.ndarray
+) -> Dict[str, float]:
+    """Calculate comprehensive set of model metrics.
+
+    Args:
+        y_true: True labels
+        y_pred: Predicted labels
+        y_proba: Predicted probabilities
+
+    Returns:
+        Dictionary of metrics
+    """
+    metrics = {
+        "accuracy": accuracy_score(y_true, y_pred),
+        "balanced_accuracy": balanced_accuracy_score(y_true, y_pred),
+        "precision": precision_score(y_true, y_pred),
+        "recall": recall_score(y_true, y_pred),
+        "f1": f1_score(y_true, y_pred),
+        "roc_auc": roc_auc_score(y_true, y_proba),
+        "avg_precision": average_precision_score(y_true, y_proba),
+        "log_loss": log_loss(y_true, y_proba),
+        "brier_score": brier_score_loss(y_true, y_proba),
+        # Additional statistical metrics
+        "pred_pos_ratio": np.mean(y_pred),
+        "true_pos_ratio": np.mean(y_true),
+        "pred_std": np.std(y_proba),
+    }
+
+    # Calculate class-specific metrics
+    for class_label in [0, 1]:
+        mask = y_true == class_label
+        if np.any(mask):
+            metrics.update(
+                {
+                    f"class_{class_label}_precision": precision_score(
+                        y_true, y_pred, pos_label=class_label
+                    ),
+                    f"class_{class_label}_recall": recall_score(
+                        y_true, y_pred, pos_label=class_label
+                    ),
+                    f"class_{class_label}_f1": f1_score(
+                        y_true, y_pred, pos_label=class_label
+                    ),
+                }
+            )
+
+    return metrics
+
+
+def get_model_predictions(
+    model: Any, X: np.ndarray, is_torch_model: bool = False
+) -> tuple[np.ndarray, np.ndarray]:
+    """Get model predictions and probabilities.
+
+    Args:
+        model: Trained model
+        X: Input features
+        is_torch_model: Whether the model is a PyTorch model
+
+    Returns:
+        Tuple of (predictions, probabilities)
+    """
+    if is_torch_model:
+        model.eval()
+        with torch.no_grad():
+            X_tensor = torch.FloatTensor(X.values)
+            outputs = model(X_tensor)
+            y_proba = outputs.squeeze().numpy()
+            y_pred = (outputs >= 0.5).squeeze().numpy()
+    else:
+        y_pred = model.predict(X)
+        y_proba = model.predict_proba(X)[:, 1]
+
+    return y_pred, y_proba
+
+
+def calculate_benchmark_metrics(
+    metrics: Dict[str, float], benchmark: float = 0.5131
+) -> Dict[str, float]:
+    """Calculate benchmark comparison metrics.
+
+    Args:
+        metrics: Dictionary of model metrics
+        benchmark: Benchmark accuracy value
+
+    Returns:
+        Dictionary with added benchmark metrics
+    """
+    metrics["benchmark_accuracy"] = benchmark
+    metrics["accuracy_vs_benchmark"] = metrics["accuracy"] - benchmark
+    metrics["accuracy_pct_improvement"] = (
+        (metrics["accuracy"] - benchmark) / benchmark * 100
+    )
+    metrics["relative_improvement"] = (metrics["accuracy"] / benchmark) - 1
+
+    return metrics
+
+
 def aggregate_model_results(
-    base_dt=None,
-    grid_dt=None,
-    tuned_gb=None,
-    nn_model=None,
-    X_test=None,
-    y_test=None,
-    X_test_selected=None,
+    base_dt: Optional[Any] = None,
+    grid_dt: Optional[Dict[str, Any]] = None,
+    tuned_gb: Optional[Dict[str, Any]] = None,
+    nn_model: Optional[Any] = None,
+    X_test_clean: Optional[np.ndarray] = None,
+    y_test: Optional[np.ndarray] = None,
+    X_test_selected: Optional[np.ndarray] = None,
 ) -> dict:
-    """Aggregate model results into a dictionary.
+    """Aggregate comprehensive model results and metrics.
 
     Args:
         base_dt: Base decision tree model
-        grid_dt: Tuned decision tree model
-        tuned_gb: Tuned gradient boosting model
+        grid_dt: Tuned decision tree model dictionary
+        tuned_gb: Tuned gradient boosting model dictionary
         nn_model: Neural network model
+        X_test_clean: Cleaned test features
+        y_test: Test target
+        X_test_selected: Selected test features
 
     Returns:
-        Dictionary containing the trained models
+        Nested dictionary containing metrics for all models
     """
-    return {
-        "Decision Tree (Base)": base_dt.score(X_test, y_test),
-        "Decision Tree (Tuned)": grid_dt["best_model"].score(X_test, y_test),
-        "GB (n_estimators)": tuned_gb["n_estimators_result"].score(X_test, y_test),
-        "GB (+ tree params)": tuned_gb["tree_params_result"].score(X_test, y_test),
-        "GB (+ leaf params)": tuned_gb["leaf_params_result"].score(X_test, y_test),
-        "GB (+ max features)": tuned_gb["max_features_result"].score(X_test, y_test),
+    all_metrics = {}
+
+    # Base Decision Tree
+    if base_dt is not None and X_test_clean is not None:
+        y_pred, y_proba = get_model_predictions(base_dt, X_test_clean)
+        base_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
+        all_metrics["base_decision_tree"] = calculate_benchmark_metrics(base_metrics)
+
+    # Tuned Decision Tree
+    if grid_dt is not None and X_test_clean is not None:
+        y_pred, y_proba = get_model_predictions(grid_dt["best_model"], X_test_clean)
+        tuned_dt_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
+        all_metrics["tuned_decision_tree"] = calculate_benchmark_metrics(
+            tuned_dt_metrics
+        )
+
+    # Gradient Boosting stages
+    if tuned_gb is not None and X_test_clean is not None:
+        gb_stages = {
+            "gb_n_estimators": tuned_gb["n_estimators_result"],
+            "gb_tree_params": tuned_gb["tree_params_result"],
+            "gb_leaf_params": tuned_gb["leaf_params_result"],
+            "gb_max_features": tuned_gb["max_features_result"],
+        }
+
+        for stage_name, model in gb_stages.items():
+            y_pred, y_proba = get_model_predictions(model, X_test_clean)
+            stage_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
+            all_metrics[stage_name] = calculate_benchmark_metrics(stage_metrics)
+
+    # Neural Network
+    if nn_model is not None and X_test_clean is not None:
+        y_pred, y_proba = get_model_predictions(
+            nn_model, X_test_clean, is_torch_model=True
+        )
+        nn_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
+        all_metrics["neural_network"] = calculate_benchmark_metrics(nn_metrics)
+
+    # Add metadata
+    all_metrics["metadata"] = {
+        "n_test_samples": len(y_test),
+        "n_features": X_test_clean.shape[1],
+        "n_features_selected": X_test_selected.shape[1]
+        if X_test_selected is not None
+        else None,
+        "class_distribution.positive": float(np.mean(y_test)),
+        "class_distribution.negative": float(1 - np.mean(y_test)),
     }
+    # metrics must be flattened
+    all_metrics_flattened = {
+        k + "." + k2: v2
+        for k, v in all_metrics.items()
+        for k2, v2 in (v.items() if isinstance(v, dict) else {k: v}.items())
+    }
+    # return all_metrics
+    return all_metrics_flattened

@@ -23,7 +23,10 @@ HOOKS = (SparkHooks(),)
 # CONF_SOURCE = "conf"
 
 # Class that manages how configuration is loaded.
+from pathlib import Path
+
 from kedro.config import OmegaConfigLoader  # noqa: E402
+from kedro_viz.integrations.kedro.sqlite_store import SQLiteStore
 
 CONFIG_LOADER_CLASS = OmegaConfigLoader
 # Keyword arguments to pass to the `CONFIG_LOADER_CLASS` constructor.
@@ -32,7 +35,7 @@ CONFIG_LOADER_ARGS = {
     "default_run_env": "local",
     "config_patterns": {
         "spark": ["spark*", "spark*/**"],
-    }
+    },
 }
 
 # Class that manages Kedro's library components.
@@ -42,3 +45,6 @@ CONFIG_LOADER_ARGS = {
 # Class that manages the Data Catalog.
 # from kedro.io import DataCatalog
 # DATA_CATALOG_CLASS = DataCatalog
+
+SESSION_STORE_CLASS = SQLiteStore
+SESSION_STORE_ARGS = {"path": str(Path(__file__).parents[2] / "data")}
