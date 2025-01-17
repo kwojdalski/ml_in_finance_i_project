@@ -4,11 +4,9 @@ from .nodes import (
     calculate_statistical_features,
     calculate_technical_indicators,
     drop_id_cols,
-    drop_missing_returns,
     drop_obsolete_technical_indicators,
     filter_infinity_values,
-    load_data,
-    preprocess_data,
+    load_and_preprocess_data,
     remove_duplicated_columns,
 )
 
@@ -17,29 +15,16 @@ def create_pipeline(**kwargs) -> Pipeline:
     return pipeline(
         [
             node(
-                func=load_data,
-                inputs=["x_train_raw", "y_train_raw", "x_test_raw"],
-                outputs=["train_df", "test_df"],
-                name="load_data_node",
-                tags=["data_loading"],
-            ),
-            node(
-                func=drop_missing_returns,
-                inputs=["train_df"],
-                outputs="train_df_dropped",
-                name="drop_missing_returns_node",
-                tags=["data_cleaning"],
-            ),
-            node(
-                func=preprocess_data,
+                func=load_and_preprocess_data,
                 inputs=[
-                    "train_df_dropped",
-                    "test_df",
+                    "x_train_raw",
+                    "y_train_raw",
+                    "x_test_raw",
                     "params:remove_id_cols",
                 ],
                 outputs=["train_df_preprocessed", "test_df_preprocessed"],
-                name="preprocess_data_node",
-                tags=["data_preprocessing"],
+                name="load_and_preprocess_data_node",
+                tags=["data_loading", "data_cleaning", "data_preprocessing"],
             ),
             node(
                 func=calculate_statistical_features,

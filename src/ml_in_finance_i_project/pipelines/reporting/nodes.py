@@ -388,36 +388,6 @@ def simulate_strategy(y_test, y_predict, n_simulations=1000, n_days=100):
     return fig
 
 
-def evaluate_models(models, X_test, y_test):
-    """Evaluate all trained models and return dictionary of accuracy scores.
-
-    Args:
-        models (dict): Dictionary mapping model names to model objects
-        X_test: Test features
-        y_test: Test labels
-
-    Returns:
-        dict: Dictionary mapping model names to accuracy scores
-    """
-
-    results = {}
-
-    for name, model in models.items():
-        if hasattr(model, "best_estimator_"):
-            # For grid search results
-            score = model.best_estimator_.score(X_test, y_test)
-        elif hasattr(model, "score"):
-            # For sklearn models
-            score = model.score(X_test, y_test)
-        else:
-            # For neural network or other models
-            score = accuracy_score(y_test, model)
-
-        results[name] = score
-
-    return results
-
-
 def calculate_model_metrics(
     y_true: np.ndarray, y_pred: np.ndarray, y_proba: np.ndarray
 ) -> Dict[str, float]:

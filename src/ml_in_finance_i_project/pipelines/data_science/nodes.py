@@ -6,7 +6,6 @@ import torch
 from GBClassifierGridSearch import HistGBClassifierGridSearch
 from sklearn import tree
 from sklearn.impute import KNNImputer
-from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch import nn
@@ -111,42 +110,6 @@ def train_neural_network(
             optimizer.step()
 
     return nn_model
-
-
-def evaluate_models(
-    dt_model: tree.DecisionTreeClassifier,
-    gb_model: HistGBClassifierGridSearch,
-    nn_model: Net,
-    test_df: pd.DataFrame,
-) -> dict:
-    """Evaluate all trained models.
-
-    Args:
-        dt_model: Trained decision tree
-        gb_model: Trained gradient boosting
-        nn_model: Trained neural network
-        test_df: Test data
-
-    Returns:
-        Dictionary of model evaluation metrics
-    """
-    # Keep original evaluation code
-    model_results = {
-        "Decision Tree": dt_model.score(test_df.drop("RET", axis=1), test_df["RET"]),
-        "Gradient Boosting": gb_model.score(
-            test_df.drop("RET", axis=1), test_df["RET"]
-        ),
-    }
-
-    # Neural network evaluation
-    nn_model.eval()
-    with torch.no_grad():
-        X_test_tensor = torch.FloatTensor(test_df.drop("RET", axis=1).values)
-        outputs = nn_model(X_test_tensor)
-        y_predict = (outputs >= 0.5).squeeze().numpy()
-        model_results["Neural Network"] = accuracy_score(test_df["RET"], y_predict)
-
-    return model_results
 
 
 def tune_decision_tree(

@@ -14,22 +14,31 @@ conf_loader = OmegaConfigLoader(".", base_env="", default_run_env="")
 conf_params = conf_loader["parameters"]
 
 
-def load_data(
+def load_and_preprocess_data(
     x_train: str | Path | pd.DataFrame,
     y_train: str | Path | pd.DataFrame,
     x_test: str | Path | pd.DataFrame,
+    remove_id_cols: bool = True,
+    n_days: int = 5,
+    sample_n: int | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Load training and test data, preprocess by:
+    Load and preprocess training and test data by:
     - Loading CSV files
+    - Dropping rows with missing returns
     - Dropping NA values and ID columns
-    - Computing moving averages and mean returns
     - Converting target to binary
 
+    Args:
+        x_train: Training features data source
+        y_train: Training target data source
+        x_test: Test features data source
+        remove_id_cols: Whether to remove ID columns
+        n_days: Number of most recent days to check for missing returns
+        sample_n: Optional number of samples to take from training data
+
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: A tuple containing:
-            - train_df: Preprocessed training dataframe
-            - test_df: Preprocessed test dataframe
+        tuple[pd.DataFrame, pd.DataFrame]: Preprocessed training and test dataframes
     """
     # Load data
     if isinstance(x_train, str | Path):
@@ -42,66 +51,38 @@ def load_data(
     else:
         test_df: pd.DataFrame = x_test
 
-    return train_df, test_df
-
-
-def drop_missing_returns(train_df: pd.DataFrame, n_days: int = 5) -> pd.DataFrame:
-    """Drop rows where all return features for the last n_days are missing.
-
-    Args:
-        train_df: DataFrame containing return features named RET_1, RET_2, etc.
-        n_days: Number of most recent days to check for missing returns
-
-    Returns:
-        DataFrame with rows dropped where all return features are missing
-    """
+    # Drop rows where all recent return features are missing
     return_features = [f"RET_{day}" for day in range(1, n_days + 1)]
-
-    # Calculate proportion of missing values for each row
     missing_prop = (
         train_df[return_features].isna().sum(axis=1)
         / train_df[return_features].shape[1]
     )
+    train_df = train_df[missing_prop < 1].copy()
 
-    # Drop rows where all return features are missing
-    return train_df[missing_prop < 1].copy()
-
-
-def preprocess_data(
-    train_df: pd.DataFrame,
-    test_df: pd.DataFrame,
-    remove_id_cols: bool = True,
-    sample_n: int | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    # Clean data
+    # Clean data and drop NA values
     n_before = len(train_df)
     train_df = train_df.dropna()
     n_after = len(train_df)
     log.debug(f"Dropped {n_before - n_after} rows with NA values from train_df")
-    # Set index to ID column
+
+    # Set index and remove duplicates
     train_df = train_df.loc[:, ~train_df.columns.duplicated()]
     train_df = train_df.set_index("ID")
     test_df = test_df.loc[:, ~test_df.columns.duplicated()]
     test_df = test_df.set_index("ID")
     log.debug("Set index to ID column for train_df and test_df")
 
+    # Drop ID columns if requested
     if remove_id_cols:
         train_df = train_df.drop(conf_params["raw_data"]["id_cols"], axis=1)
-        log.debug(
-            f"Dropped ID columns {conf_params['raw_data']['id_cols']} from train_df"
-        )
-
-    if remove_id_cols:
         test_df = test_df.drop(conf_params["raw_data"]["id_cols"], axis=1)
-        log.debug(
-            f"Dropped ID columns {conf_params['raw_data']['id_cols']} from test_df"
-        )
+        log.debug(f"Dropped ID columns {conf_params['raw_data']['id_cols']}")
 
     # Convert target to binary
     sign_of_return: LabelEncoder = LabelEncoder()
     train_df["RET"] = sign_of_return.fit_transform(train_df["RET"])
 
-    # Sample training data if sample_n is provided
+    # Sample training data if requested
     if sample_n is not None:
         train_df = train_df.sample(n=sample_n, random_state=42)
         log.debug(f"Sampled {sample_n} rows from train_df")

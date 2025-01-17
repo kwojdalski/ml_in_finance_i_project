@@ -57,22 +57,6 @@ x_test_raw:
   save_args:
     mode: overwrite
 
-train_df:
-  filepath: data/01_raw/train_df.pkl
-  type: pickle.PickleDataset
-
-train_df_dropped:
-  filepath: data/02_intermediate/train_df_dropped.pkl
-  type: pickle.PickleDataset
-
-test_df_dropped:
-  filepath: data/02_intermediate/test_df_dropped.pkl
-  type: pickle.PickleDataset
-
-test_df:
-  filepath: data/01_raw/test_df.pkl
-  type: pickle.PickleDataset
-
 train_df_preprocessed:
   filepath: data/02_intermediate/train_df_preprocessed.pkl
   type: pickle.PickleDataset
@@ -81,11 +65,13 @@ test_df_preprocessed:
   filepath: data/02_intermediate/test_df_preprocessed.pkl
   type: pickle.PickleDataset
 
-benchmark_qrt:
-  filepath: data/01_raw/benchmark_qrt.csv
-  type: pandas.CSVDataset
-  save_args:
-    mode: overwrite
+train_df_statistical_features:
+  filepath: data/04_feature/train_df_statistical_features.pkl
+  type: pickle.PickleDataset
+
+test_df_statistical_features:
+  filepath: data/04_feature/test_df_statistical_features.pkl
+  type: pickle.PickleDataset
 
 train_ta_indicators:
   filepath: data/04_feature/train_ta_indicators.pkl
@@ -93,6 +79,14 @@ train_ta_indicators:
 
 test_ta_indicators:
   filepath: data/04_feature/test_ta_indicators.pkl
+  type: pickle.PickleDataset
+
+train_ta_indicators_dropped:
+  filepath: data/04_feature/train_ta_indicators_dropped.pkl
+  type: pickle.PickleDataset
+
+test_ta_indicators_dropped:
+  filepath: data/04_feature/test_ta_indicators_dropped.pkl
   type: pickle.PickleDataset
 
 train_df_technical_indicators:
@@ -116,7 +110,7 @@ X_train:
   type: pickle.PickleDataset
 
 X_test:
-  filepath: data/05_intermediate/X_test.pkl
+  filepath: data/05_model_input/X_test.pkl
   type: pickle.PickleDataset
 
 y_train:
@@ -135,17 +129,45 @@ X_test_clean:
   filepath: data/05_model_input/X_test_clean.pkl
   type: pickle.PickleDataset
 
-train_df_processed:
-  filepath: data/05_model_input/processed_train_df.pkl
+y_train_clean:
+  filepath: data/05_model_input/y_train_clean.pkl
   type: pickle.PickleDataset
 
-test_df_processed:
-  filepath: data/05_model_input/processed_test_df.pkl
+y_test_clean:
+  filepath: data/05_model_input/y_test_clean.pkl
   type: pickle.PickleDataset
 
-feature_importance_plot:
-  type: plotly.JSONDataset
-  filepath: data/08_reporting/feature_importance.json
+base_dt:
+  filepath: data/06_models/base_dt.pkl
+  type: pickle.PickleDataset
+
+grid_dt:
+  filepath: data/06_models/grid_dt.pkl
+  type: pickle.PickleDataset
+
+base_gb:
+  filepath: data/06_models/base_gb.pkl
+  type: pickle.PickleDataset
+
+tuned_gb:
+  filepath: data/06_models/tuned_gb.pkl
+  type: pickle.PickleDataset
+
+nn_model:
+  filepath: data/06_models/nn_model.pkl
+  type: pickle.PickleDataset
+
+features_filtered:
+  filepath: data/07_model_output/features_filtered.pkl
+  type: pickle.PickleDataset
+
+features_rm_duplicates:
+  filepath: data/07_model_output/features_rm_duplicates.pkl
+  type: pickle.PickleDataset
+
+all_metrics:
+  filepath: data/09_tracking/all_metrics.json
+  type: tracking.MetricsDataset
   versioned: true
 
 returns_volume_plot:
@@ -153,42 +175,6 @@ returns_volume_plot:
   filepath: data/08_reporting/returns_volume.json
   versioned: true
 
-strategy_simulation_plot:
-  type: plotly.JSONDataset
-  filepath: data/08_reporting/strategy_simulation.json
-  versioned: true
-
-decision_tree_model:
-  filepath: data/06_models/decision_tree_model.pkl
-  type: pickle.PickleDataset
-
-gradient_boosting_model:
-  filepath: data/06_models/gradient_boosting_model.pkl 
-  type: pickle.PickleDataset
-
-model_metrics:
-  filepath: data/07_model_output/model_metrics.json
-  type: json.JSONDataset
-  versioned: true
-
-model_predictions:
-  filepath: data/07_model_output/predictions.csv
-  type: pandas.CSVDataset
-
-model_feature_importance:
-  filepath: data/08_reporting/feature_importance.csv
-  type: pandas.CSVDataset
-
-model_performance_plot:
-  type: plotly.JSONDataset
-  filepath: data/08_reporting/model_performance.json
-  versioned: true
-
-roc_curve_plot:
-  type: plotly.JSONDataset
-  filepath: data/08_reporting/roc_curve.json
-  versioned: true
-  
 correlation_matrix_plot:
   type: plotly.JSONDataset
   filepath: data/08_reporting/correlation_matrix.json
@@ -210,101 +196,13 @@ model_accuracy_plot:
   filepath: data/08_reporting/model_accuracy.json
   versioned: true
 
-base_dt:
-  filepath: data/06_models/base_dt.pkl
-  type: pickle.PickleDataset
-
-grid_dt:
-  filepath: data/06_models/grid_dt.pkl
-  type: pickle.PickleDataset
-
-base_gb:
-  filepath: data/06_models/base_gb.pkl
-  type: pickle.PickleDataset
-
-tuned_gb:
-  filepath: data/06_models/tuned_gb.pkl
-  type: pickle.PickleDataset
-
-y_predict:
-  filepath: data/07_model_output/y_predict.csv
-  type: pandas.CSVDataset
-
-features:
-  filepath: data/07_model_output/features.json
-  type: json.JSONDataset
-
-model_results:
-  filepath: data/07_model_output/model_results.json
-  type: json.JSONDataset
-
-nn_model:
-  filepath: data/06_models/nn_model.pkl
-  type: pickle.PickleDataset
-
-X_test_selected:
-  filepath: data/05_model_input/X_test_selected.pkl
-  type: pickle.PickleDataset
-
-X_train_selected:
-  filepath: data/05_model_input/X_train_selected.pkl
-  type: pickle.PickleDataset
-
-y_train_clean:
-  filepath: data/05_model_input/y_train_clean.pkl
-  type: pickle.PickleDataset
-
-y_test_clean:
-  filepath: data/05_model_input/y_test_clean.pkl
-  type: pickle.PickleDataset
-
-grid_dt_selected:
-  filepath: data/06_models/grid_dt_selected.pkl
-  type: pickle.PickleDataset
-
-tuned_dt_model:
-  filepath: data/06_models/tuned_dt_model.pkl
-  type: pickle.PickleDataset
-
-# Statistical features
-train_df_statistical_features:
-  filepath: data/04_feature/train_df_statistical_features.pkl
-  type: pickle.PickleDataset
-
-test_df_statistical_features:
-  filepath: data/04_feature/test_df_statistical_features.pkl
-  type: pickle.PickleDataset
-
-statistical_features:
-  filepath: data/07_model_output/statistical_features.pkl
-  type: pickle.PickleDataset
-
-# Feature lists
-features_filtered:
-  filepath: data/07_model_output/features_filtered.pkl
-  type: pickle.PickleDataset
-
-features_rm_duplicates:
-  filepath: data/07_model_output/features_rm_duplicates.pkl
-  type: pickle.PickleDataset
-
-important_features:
-  filepath: data/07_model_output/important_features.pkl
-  type: pickle.PickleDataset
-
-# Model results
-model_results_dict:
-  filepath: data/07_model_output/model_results_dict.pkl
-  type: pickle.PickleDataset
-
-# Strategy simulation
-strategy_simulation:
-  filepath: data/08_reporting/strategy_simulation.json
+feature_importance_plot:
   type: plotly.JSONDataset
+  filepath: data/08_reporting/feature_importance.json
+  versioned: true
 
-
-all_metrics:
-  type: tracking.MetricsDataset
-  filepath: data/09_tracking/all_metrics.json
+strategy_simulation_plot:
+  type: plotly.JSONDataset
+  filepath: data/08_reporting/strategy_simulation.json
   versioned: true
 
