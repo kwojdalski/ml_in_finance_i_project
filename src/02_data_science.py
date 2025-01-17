@@ -81,14 +81,10 @@ kfold = conf_params["model_options"]["kfold"]
 # %%
 out9 = get_node_outputs(
     pipelines["data_processing"].nodes[
-        get_node_idx(pipelines["data_processing"], "remove_duplicated_columns_node")
+        get_node_idx(pipelines["data_processing"], "remove_duplicates_and_nans_node")
     ],
     catalog,
 )
-
-# %% [markdown]
-# %%
-
 
 # %% [markdown]
 # ## Train and test set splitting
@@ -97,26 +93,16 @@ out10 = run_pipeline_node(
     "data_science",
     "split_data_node",
     {
-        "train_df_rm_duplicates": out9["train_df_rm_duplicates"],
+        "train_df_clean": out9["train_df_clean"],
         "params:model_options": conf_params["model_options"],
     },
 )
 # %%
-out11 = run_pipeline_node(
-    "data_science",
-    "remove_nan_rows_node",
-    {
-        "X_train": out10["X_train"],
-        "X_test": out10["X_test"],
-        "y_train": out10["y_train"],
-        "y_test": out10["y_test"],
-    },
-)
 
-X_train = out11["X_train_clean"]
-X_test = out11["X_test_clean"]
-y_train = out11["y_train_clean"]
-y_test = out11["y_test_clean"]
+X_train = out10["X_train"]
+X_test = out10["X_test"]
+y_train = out10["y_train"]
+y_test = out10["y_test"]
 # %% [markdown]
 # ### Decison tree baseline model
 # %%
@@ -124,8 +110,8 @@ base_dt = run_pipeline_node(
     "data_science",
     "train_decision_tree_node",
     {
-        "X_train_clean": X_train,
-        "y_train_clean": y_train,
+        "X_train": X_train,
+        "y_train": y_train,
     },
 )["base_dt"]
 
@@ -145,8 +131,8 @@ tuned_dt = run_pipeline_node(
     "data_science",
     "tune_decision_tree_node",
     {
-        "X_train_clean": X_train,
-        "y_train_clean": y_train,
+        "X_train": X_train,
+        "y_train": y_train,
         "parameters": conf_params,
     },
 )["grid_dt"]
@@ -162,7 +148,7 @@ run_pipeline_node(
     "plot_feature_importance_node",
     {
         "grid_dt": tuned_dt,
-        "X_train_clean": X_train,
+        "X_train": X_train,
         "params:feature_importance_threshold": conf_params["model_options"][
             "feature_importance_threshold"
         ],
@@ -178,8 +164,8 @@ out12 = run_pipeline_node(
     "data_science",
     "select_important_features_node",
     {
-        "X_train_clean": X_train,
-        "X_test_clean": X_test,
+        "X_train": X_train,
+        "X_test": X_test,
         "grid_dt": tuned_dt,
         "parameters": conf_params,
     },
@@ -197,7 +183,7 @@ grid_dt = run_pipeline_node(
     "tune_decision_tree_selected_node",
     {
         "X_train_selected": X_train_selected,
-        "y_train_clean": y_train,
+        "y_train": y_train,
         "parameters": conf_params,
     },
 )["grid_dt_selected"]
@@ -246,8 +232,8 @@ gbm_classifier = run_pipeline_node(
     "data_science",
     "train_gradient_boosting_node",
     {
-        "X_train_clean": X_train,
-        "y_train_clean": y_train,
+        "X_train": X_train,
+        "y_train": y_train,
         "parameters": conf_params,
     },
 )["base_gb"]
@@ -284,8 +270,8 @@ tuned_gb = run_pipeline_node(
     "tune_gradient_boosting_node",
     {
         "base_gb": gbm_classifier,
-        "X_train_clean": X_train,
-        "y_train_clean": y_train,
+        "X_train": X_train,
+        "y_train": y_train,
     },
 )["tuned_gb"]
 
@@ -351,8 +337,8 @@ nn_model = run_pipeline_node(
     "data_science",
     "train_neural_network_node",
     {
-        "X_train_clean": X_train,
-        "y_train_clean": y_train,
+        "X_train": X_train,
+        "y_train": y_train,
         "parameters": conf_params,
     },
 )["nn_model"]
@@ -426,11 +412,11 @@ run_pipeline_node(
 
 # %% [markdown]
 # ### Predictions for the contest
-max_features_result.best_estimator_.predict(out9["test_df_rm_duplicates"])
+max_features_result.best_estimator_.predict(out9["test_df_clean"])
 y_pred = max_features_result.best_estimator_.predict_proba(
-    out9["test_df_rm_duplicates"].fillna(0)
+    out9["test_df_clean"].fillna(0)
 )[:, 1]
-sub = out9["test_df_rm_duplicates"].copy()
+sub = out9["test_df_clean"].copy()
 sub["pred"] = y_pred
 y_pred = sub["pred"].transform(lambda x: x > x.median()).values
 

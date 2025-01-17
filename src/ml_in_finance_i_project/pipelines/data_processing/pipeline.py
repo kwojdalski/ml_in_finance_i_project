@@ -7,8 +7,7 @@ from .nodes import (
     drop_obsolete_technical_indicators,
     filter_infinity_values,
     load_and_preprocess_data,
-    remove_duplicated_columns,
-    remove_nan_rows,
+    remove_duplicates_and_nans,
 )
 
 
@@ -22,14 +21,16 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "y_train_raw",
                     "x_test_raw",
                     "params:remove_id_cols",
+                    "params:n_days",
+                    "params:sample_n",
                 ],
-                outputs=["train_df_preprocessed", "test_df_preprocessed"],
+                outputs=["train_df", "test_df"],
                 name="load_and_preprocess_data_node",
                 tags=["data_loading", "data_cleaning", "data_preprocessing"],
             ),
             node(
                 func=calculate_statistical_features,
-                inputs=["train_df_preprocessed", "test_df_preprocessed"],
+                inputs=["train_df", "test_df"],
                 outputs=[
                     "train_df_statistical_features",
                     "test_df_statistical_features",
@@ -90,29 +91,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                 tags=["data_cleaning"],
             ),
             node(
-                func=remove_duplicated_columns,
-                inputs=[
-                    "train_df_filtered",
-                    "test_df_filtered",
-                ],
+                func=remove_duplicates_and_nans,
+                inputs=["train_df_filtered", "test_df_filtered"],
                 outputs=[
-                    "train_df_rm_duplicates",
-                    "test_df_rm_duplicates",
-                    "features_rm_duplicates",
+                    "train_df_clean",
+                    "test_df_clean",
                 ],
-                name="remove_duplicated_columns_node",
-                tags=["data_cleaning"],
-            ),
-            node(
-                func=remove_nan_rows,
-                inputs=["X_train", "X_test", "y_train", "y_test"],
-                outputs=[
-                    "X_train_clean",
-                    "X_test_clean",
-                    "y_train_clean",
-                    "y_test_clean",
-                ],
-                name="remove_nan_rows_node",
+                name="remove_duplicates_and_nans_node",
                 tags=["data_cleaning"],
             ),
         ]

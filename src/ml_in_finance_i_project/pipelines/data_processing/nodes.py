@@ -85,7 +85,8 @@ def load_and_preprocess_data(
     # Sample training data if requested
     if sample_n is not None:
         train_df = train_df.sample(n=sample_n, random_state=42)
-        log.debug(f"Sampled {sample_n} rows from train_df")
+        test_df = test_df.sample(n=sample_n, random_state=42)
+        log.debug(f"Sampled {sample_n} rows from train_df and test_df")
 
     return train_df, test_df
 
@@ -348,3 +349,49 @@ def remove_nan_rows(
     )
 
     return X_train_clean, X_test_clean, y_train_clean, y_test
+
+
+def remove_duplicates_and_nans(
+    train_df_filtered: pd.DataFrame,
+    test_df_filtered: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Remove duplicated columns and NaN values from filtered datasets.
+
+    Args:
+        train_df_filtered: Filtered training DataFrame
+        test_df_filtered: Filtered test DataFrame
+        y_train: Training target
+        y_test: Test target
+
+    Returns:
+        Tuple containing:
+        - Cleaned train DataFrame
+        - Cleaned test DataFrame
+    """
+    # First remove duplicated columns
+    train_duplicates = train_df_filtered.columns[
+        train_df_filtered.columns.duplicated()
+    ].tolist()
+    test_duplicates = test_df_filtered.columns[
+        test_df_filtered.columns.duplicated()
+    ].tolist()
+    duplicated_cols = list(set(train_duplicates) | set(test_duplicates))
+
+    # Remove duplicated columns
+    train_filtered = train_df_filtered.loc[:, ~train_df_filtered.columns.duplicated()]
+    test_filtered = test_df_filtered.loc[:, ~test_df_filtered.columns.duplicated()]
+
+    # Then handle NaN values
+    nan_mask = train_filtered.isna().any(axis=1)
+    train_clean = train_filtered[~nan_mask]
+
+    # Fill NaN values in test set using KNN imputation
+    imputer = KNNImputer(n_neighbors=5)
+    test_clean = pd.DataFrame(
+        imputer.fit_transform(test_filtered),
+        columns=test_filtered.columns,
+        index=test_filtered.index,
+    )
+
+    return train_clean, test_clean

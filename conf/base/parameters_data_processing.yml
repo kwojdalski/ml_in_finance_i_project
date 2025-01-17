@@ -52,6 +52,8 @@ raw_data:
   y_train_cols: ["RET"]
   id_cols: ["ID", "STOCK", "DATE", "INDUSTRY", "INDUSTRY_GROUP", "SECTOR", "SUB_INDUSTRY"]
 
+n_days: 5
+sample_n: 1000
 remove_id_cols: false
 
 # Feature Processing Node Parameters

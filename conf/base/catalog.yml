@@ -197,3 +197,20 @@ X_test_selected:
 y_predict:
   filepath: data/07_model_output/y_predict.csv
   type: pandas.CSVDataset
+
+train_df:
+  filepath: data/02_intermediate/train_df.pkl
+  type: pickle.PickleDataset
+
+test_df:
+  filepath: data/02_intermediate/test_df.pkl
+  type: pickle.PickleDataset
+
+train_df_clean:
+  filepath: data/05_model_input/train_df_clean.pkl
+  type: pickle.PickleDataset
+
+test_df_clean:
+  filepath: data/05_model_input/test_df_clean.pkl
+  type: pickle.PickleDataset
+

@@ -232,11 +232,14 @@ kfold = conf_params["model_options"]["kfold"]
 # Run data processing pipeline node
 out = run_pipeline_node(
     "data_processing",
-    "load_data_node",
+    "load_and_preprocess_data_node",
     {
         "x_train_raw": x_train_raw,
         "y_train_raw": y_train_raw,
         "x_test_raw": x_test_raw,
+        "params:remove_id_cols": conf_params["remove_id_cols"],
+        "params:n_days": conf_params["n_days"],
+        "params:sample_n": conf_params["sample_n"],
     },
 )
 
@@ -248,7 +251,10 @@ out = run_pipeline_node(
 run_pipeline_node(
     "reporting",
     "plot_returns_volume_node",
-    {"train_df": out["train_df"], "params:example_row_id": 28},
+    {
+        "train_df": out["train_df"],
+        "params:example_row_id": 43340,
+    },
 )["returns_volume_plot"]
 
 
@@ -287,28 +293,15 @@ run_pipeline_node(
 # 7. Some stocks might be barely trading (either due to low volume or in a non-continuous manner)
 
 
-# %% Dropping rows with NAs for the most important variables (RET_1 to RET_5)
+# %%[markdown] Dropping rows with NAs for the most important variables (RET_1 to RET_5)
 # The assumption is that the most recent values for regressors are the most important
-
-out2 = run_pipeline_node(
-    "data_processing", "drop_missing_returns_node", {"train_df": out["train_df"]}
-)
 
 # %% [markdown]
 # #### Preprocessing data
 # * Dropping rows with NAs
 # * If arg set to true, removing ID columns
 # * RET is encoded from bool to binary
-# %%
-out3 = run_pipeline_node(
-    "data_processing",
-    "preprocess_data_node",
-    {
-        "train_df_dropped": out2["train_df_dropped"],
-        "test_df": out["test_df"],
-        "params:remove_id_cols": conf_params["remove_id_cols"],
-    },
-)
+
 
 # %% [markdown]
 # #### Check Class Imbalance
@@ -319,8 +312,8 @@ out3 = run_pipeline_node(
 # unless data comes from a bear market period.
 # %%
 md(
-    f"Class imbalance: {out3['train_df_preprocessed']['RET'].value_counts(normalize=True)[0] * 100:.2f}%"
-    + f" {out3['train_df_preprocessed']['RET'].value_counts(normalize=True)[1] * 100:.2f}%"
+    f"Class imbalance: {out['train_df']['RET'].value_counts(normalize=True)[0] * 100:.2f}%"
+    + f" {out['train_df']['RET'].value_counts(normalize=True)[1] * 100:.2f}%"
 )
 
 
@@ -341,7 +334,7 @@ md(
 out_corr = run_pipeline_node(
     "reporting",
     "plot_correlation_matrix_node",
-    {"train_df": out3["train_df_preprocessed"]},
+    {"train_df": out["train_df"]},
 )
 out_corr["correlation_matrix_plot"]
 # %% [markdown]
@@ -371,27 +364,27 @@ import warnings
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
-    out4 = run_pipeline_node(
+    out2 = run_pipeline_node(
         "data_processing",
         "calculate_statistical_features_node",
         {
-            "train_df_preprocessed": out3["train_df_preprocessed"],
-            "test_df_preprocessed": out3["test_df_preprocessed"],
+            "train_df": out["train_df"],
+            "test_df": out["test_df"],
         },
     )
 
 # %% [markdown]
 # ### Calculate technical indicators
 # %%
-calculate = False
+calculate = True
 
 if calculate:
-    out5 = run_pipeline_node(
+    out3 = run_pipeline_node(
         "data_processing",
         "calculate_technical_indicators_node",
         {
-            "train_df_statistical_features": out4["train_df_statistical_features"],
-            "test_df_statistical_features": out4["test_df_statistical_features"],
+            "train_df_statistical_features": out2["train_df_statistical_features"],
+            "test_df_statistical_features": out2["test_df_statistical_features"],
             "params:features_ret_vol": conf_params["features_ret_vol"],
         },
     )
@@ -412,12 +405,12 @@ else:
 # ['ID', 'STOCK', 'DATE', 'INDUSTRY', 'INDUSTRY_GROUP', 'SECTOR', 'SUB_INDUSTRY']
 # %%
 
-out6 = run_pipeline_node(
+out4 = run_pipeline_node(
     "data_processing",
     "drop_id_cols_node",
     {
-        "train_ta_indicators": out5["train_ta_indicators"],
-        "test_ta_indicators": out5["test_ta_indicators"],
+        "train_ta_indicators": out3["train_ta_indicators"],
+        "test_ta_indicators": out3["test_ta_indicators"],
     },
 )
 
@@ -426,37 +419,36 @@ out6 = run_pipeline_node(
 # For instance SMA(10), SMA(11) etc. dont give any information in the context of RET.
 # It's an arbitrary choice, but we want to keep the number of features low
 # %%
-out7 = run_pipeline_node(
+out5 = run_pipeline_node(
     "data_processing",
     "drop_obsolete_technical_indicators_node",
     {
-        "train_ta_indicators_dropped": out6["train_ta_indicators_dropped"],
-        "test_ta_indicators_dropped": out6["test_ta_indicators_dropped"],
+        "train_ta_indicators_dropped": out4["train_ta_indicators_dropped"],
+        "test_ta_indicators_dropped": out4["test_ta_indicators_dropped"],
         "params:target": conf_params["model_options"]["target"],
     },
 )
 
 
 # %% Filter out infinity values
-out8 = run_pipeline_node(
+out6 = run_pipeline_node(
     "data_processing",
     "filter_infinity_values_node",
     {
-        "train_df_technical_indicators": out7["train_df_technical_indicators"],
-        "test_df_technical_indicators": out7["test_df_technical_indicators"],
+        "train_df_technical_indicators": out5["train_df_technical_indicators"],
+        "test_df_technical_indicators": out5["test_df_technical_indicators"],
         "params:target": conf_params["model_options"]["target"],
     },
 )
 
 
 # %%
-# Remove duplicated columns
-out9 = run_pipeline_node(
+# Remove duplicated columns and handle NaN values
+out7 = run_pipeline_node(
     "data_processing",
-    "remove_duplicated_columns_node",
+    "remove_duplicates_and_nans_node",
     {
-        "train_df_filtered": out8["train_df_filtered"],
-        "test_df_filtered": out8["test_df_filtered"],
+        "train_df_filtered": out6["train_df_filtered"],
+        "test_df_filtered": out6["test_df_filtered"],
     },
 )
-# %%

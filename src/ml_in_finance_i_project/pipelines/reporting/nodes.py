@@ -28,7 +28,7 @@ sys.path.append(str(path))
 from utils import CAT_COLS, ID_COLS
 
 
-def feature_importance(model, X_train_clean: pd.DataFrame, threshold: float = 0.01):
+def feature_importance(model, X_train: pd.DataFrame, threshold: float = 0.01):
     """
     Create a bar plot showing the importance of each feature in the model.
 
@@ -40,7 +40,7 @@ def feature_importance(model, X_train_clean: pd.DataFrame, threshold: float = 0.
         plotly.graph_objects.Figure: A plotly figure containing the feature importance plot
     """
     # Create dataframe with feature importances
-    features = X_train_clean.drop(columns=["RET"], errors="ignore").columns.tolist()
+    features = X_train.drop(columns=["RET"], errors="ignore").columns.tolist()
     feature_importances = pd.DataFrame(
         {"feature": features, "importance": model["best_model"].feature_importances_}
     )
@@ -240,8 +240,8 @@ def plot_ret_and_vol(train_df: pd.DataFrame, row_id: int = 24) -> go.Figure:
     volume_cols = [f"VOLUME_{n}" for n in range(20, 0, -1)]
 
     # Get returns and volumes
-    returns = train_df.loc[row_id, return_cols].values
-    volumes = train_df.loc[row_id, volume_cols].values / 10
+    returns = train_df[return_cols].iloc[row_id].values
+    volumes = train_df[volume_cols].iloc[row_id].values / 10
 
     # Create figure
     fig = go.Figure()
@@ -258,7 +258,7 @@ def plot_ret_and_vol(train_df: pd.DataFrame, row_id: int = 24) -> go.Figure:
     )
 
     # Add target return
-    target_return = 0.1 if train_df.loc[row_id, "RET"] else -0.1
+    target_return = 0.1 if train_df["RET"].iloc[row_id] else -0.1
     fig.add_trace(
         go.Bar(
             x=[0],

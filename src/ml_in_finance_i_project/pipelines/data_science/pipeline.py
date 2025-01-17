@@ -16,7 +16,7 @@ def create_pipeline(**kwargs) -> Pipeline:
         [
             node(
                 func=split_data,
-                inputs=["train_df_rm_duplicates", "params:model_options"],
+                inputs=["train_df_clean", "params:model_options"],
                 outputs=["X_train", "X_test", "y_train", "y_test"],
                 name="split_data_node",
                 tags=["data_splitting"],
