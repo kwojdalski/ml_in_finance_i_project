@@ -11,21 +11,20 @@
 #     language: python
 #     name: python3
 # ---
-
 # %% [markdown]
-# ### Environment setup
+# ## Stock Market Movement Prediction - Data Science
+# %% [markdown]
+# ### Environment Setup
 # %%
 import sys
 from pathlib import Path
 
-import pandas as pd
-
 try:
-    # vscode
+    # If we're in VSCode, find the src path this way
     path = Path(__file__).parent.parent
     path = path / "src"
 except NameError:
-    # jupyter notebook
+    # If we're in Jupyter, find the path this way instead
     path = Path().absolute().parent
 
 sys.path.append(str(path))
@@ -36,7 +35,7 @@ from kedro.ipython import get_ipython
 kedro.ipython.load_ipython_extension(get_ipython())
 
 # %% [markdown]
-# ## Importing libraries
+# ## Library Imports
 # %%
 import logging as log
 import sys
@@ -50,26 +49,24 @@ from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
 
 
 # %% [markdown]
-# #### Run pipeline node definition. This one must be evaluated within the notebook
+# #### Helper Function
+# - Run pipeline nodes right here in the notebook
 # %%
 def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
-    """Run a specific node from a pipeline.
+    """Run a specific node from a pipeline."""
+    from kedro.framework.session import KedroSession
 
-    Args:
-        pipeline_name: Name of the pipeline
-        node_name: Name of the node to run
-        inputs: Dictionary of input parameters for the node
-
-    Returns:
-        Output from running the node
-    """
-    node_idx = get_node_idx(pipelines[pipeline_name], node_name)
-    return pipelines[pipeline_name].nodes[node_idx].run(inputs)
+    with KedroSession.create() as session:
+        context = session.load_context()
+        pipeline = context.pipelines[pipeline_name]
+        node = [n for n in pipeline.nodes if n.name == node_name][0]
+        return node.run(inputs)
 
 
 # %% [markdown]
-# #### Kedro configuration loading
-# load the configuration file from kedro and load into conf_params
+# ### Loading Up Kedro Config
+# Grab all our parameters from the config file
+# * This has elements like our target variable and k-fold settings
 # %%
 conf_params = context.config_loader.get("parameters")
 target = conf_params["model_options"]["target"]
@@ -77,7 +74,7 @@ kfold = conf_params["model_options"]["kfold"]
 
 
 # %% [markdown]
-# ### Loading data from data_processing pipeline
+# ### Getting Data from the Data Processing Pipeline
 # %%
 out9 = get_node_outputs(
     pipelines["data_processing"].nodes[
@@ -87,7 +84,7 @@ out9 = get_node_outputs(
 )
 
 # %% [markdown]
-# ## Train and test set splitting
+# ## Split Data into Training and Test Sets
 # %%
 out10 = run_pipeline_node(
     "data_science",
@@ -98,13 +95,12 @@ out10 = run_pipeline_node(
     },
 )
 # %%
-
 X_train = out10["X_train"]
 X_test = out10["X_test"]
 y_train = out10["y_train"]
 y_test = out10["y_test"]
 # %% [markdown]
-# ### Decison tree baseline model
+# ## Basic Decision Tree Model
 # %%
 base_dt = run_pipeline_node(
     "data_science",
@@ -117,16 +113,19 @@ base_dt = run_pipeline_node(
 )["base_dt"]
 
 # %% [markdown]
-# ### Fit the base model
-# `model_fit()` function a model, makes predictions, and evaluates performance
-# using confusion matrix, accuracy score,
-# cross-validation, ROC curve and feature importance analysis.
+# ### Fitting Baseline Model
+# The model_fit() function does the following:
+# - Trains the model and makes predictions
+# - Shows us how well it's doing with confusion matrix and accuracy
+# - Does cross-validation to check if we're overfitting
+# - Draws ROC curves to visualize performance
+# - Shows which features are most important
 
 # %%
 log.info(f"Accuracy on test set: {base_dt['model'].score(X_test, y_test):.3f}")
 
 # %% [markdown]
-# ### Tunning Decision tree model with Gridsearch
+# ### Tuning Decision Tree Model with GridSearch
 
 # %%
 tuned_dt = run_pipeline_node(
@@ -140,10 +139,10 @@ tuned_dt = run_pipeline_node(
 )["grid_dt"]
 
 # %% [markdown]
-# ### Feature selection for the tuned model
+# ### Feature Selection for the Tuned Model
 # Based on feature importances
 # %% [markdown]
-# ## visualize feature importance
+# ## Visualize Feature Importance
 # %%
 run_pipeline_node(
     "reporting",
@@ -158,10 +157,8 @@ run_pipeline_node(
 )["feature_importance_plot"]
 
 # %% [markdown]
-# **filtering out features with less than 1% of feature importance**
+# **Filtering Out Features with Less Than 1% of Feature Importance**
 # %%
-# Drop target column if existsand convert to list
-
 out12 = run_pipeline_node(
     "data_science",
     "select_important_features_node",
@@ -177,7 +174,7 @@ X_test_selected = out12["X_test_selected"]
 important_features = out12["important_features"]
 
 # %% [markdown]
-# ### Decision tree tuned model
+# ## Decision Tree Tuned Model
 # New sets with only the selected features
 # %%
 grid_dt = run_pipeline_node(
@@ -210,7 +207,7 @@ model_fit(
 )
 
 # %% [markdown]
-# #### Prediction on the test dataframe
+# ### Prediction on the Test Dataframe
 # %%
 
 prediction = grid_dt["model"].predict(X_test_selected)
@@ -218,16 +215,15 @@ log.info(f"{prediction}")
 
 # %% [markdown]
 # ## Gradient Boosting Classifier
-# * HistGradientBoostingClassifier used as it is faster than GradientBoostingClassifier
+# * `HistGradientBoostingClassifier` used as it is faster than `GradientBoostingClassifier`
 # * All the features are used
-# * Remove parameters not accepted by HistGradientBoostingClassifier
+# * Remove parameters not accepted by `HistGradientBoostingClassifier`
 
 # %% [markdown]
-# **Tunning parameters with gridsearch**
-# Remove parameters not accepted by HistGradientBoostingClassifier
+# ### Tuning Parameters with GridSearch
 
 # %%
-# Set default parameters based on classifier type
+
 gbm_classifier = run_pipeline_node(
     "data_science",
     "train_gradient_boosting_node",
@@ -247,7 +243,7 @@ model_fit(
 )
 
 # %% [markdown]
-# ### Parameters tuning:
+# ### Parameters Tuning
 # Steps:
 # 1. n_estimators (30-80): Number of boosting stages to perform
 # 2. max_depth (5-15): Maximum depth of individual trees
@@ -261,7 +257,7 @@ model_fit(
 
 
 # %% [markdown]
-# ### Run sequential parameter tuning
+# ### Run Sequential Parameter Tuning
 
 # %%
 tuned_gb = run_pipeline_node(
@@ -280,15 +276,15 @@ n_estimators_result = tuned_gb["n_estimators_result"]
 tree_params_result = tuned_gb["tree_params_result"]
 
 # %% [markdown]
-# Results from previous run (HistGradientBoostingClassifier):
+# Results from Previous Run (HistGradientBoostingClassifier):
 # Best: 0.5368177574059928 using {'max_depth': 9, 'min_samples_leaf': 50}
 
 # %%
 leaf_params_result = tuned_gb["leaf_params_result"]
 
 # %% [markdown]
-# Best (simple TA): 0.578087598675834 using {'l2_regularization': 0.001}
-# #### Use the model with best parameters
+# Best (Simple TA): 0.578087598675834 using {'l2_regularization': 0.001}
+# #### Use the Model with Best Parameters
 
 # %%
 max_features_result = tuned_gb["max_features_result"]
@@ -307,7 +303,7 @@ model_fit(
 # * Initialize model, loss function and optimizer
 # Convert data to tensors
 # %% [markdown]
-# #### Decisions about architecture:
+# ### Decisions About Architecture
 # * Tanh has been used in the first two layers because it outputs values from -1 to 1, which can be beneficial
 # for centered data.
 # * ReLU is used in the later layers since it helps to mitigate the vanishing gradient problem
@@ -320,7 +316,7 @@ model_fit(
 # which can be beneficial for centered data.
 # * ReLU (Rectified Linear Unit) is generally used in the later layers since it helps to mitigate
 # the vanishing gradient problem and enhances computational efficiency.
-
+#
 # Layers:
 # * **5** layers
 # * **100** neurons in the first layer (Tanh)
@@ -329,8 +325,7 @@ model_fit(
 # * **50** neurons in the fourth layer (ReLU)
 # * **35** neurons in the fifth layer (Sigmoid)
 # %% [markdown]
-# #### Neural Network
-# Preparing standardization and normalization
+# ### Running the Model
 # %%
 nn_model = run_pipeline_node(
     "data_science",
@@ -352,7 +347,7 @@ with torch.no_grad():
 # y_predict.to_csv("data/07_model_output/y_predict.csv", index=False)
 print(classification_report(y_test_tensor, y_predict, digits=5))
 # %% [markdown]
-# Model comparison plot
+# ## Model Comparison Plot
 # Convert model results to DataFrame for plotting
 # %%
 model_results = run_pipeline_node(
@@ -369,7 +364,7 @@ model_results = run_pipeline_node(
 )["model_results"]
 
 # %% [markdown]
-# Create dictionary of model results including stepping stone models
+# Create Dictionary of Model Results Including Stepping Stone Models
 
 # %%
 run_pipeline_node(
@@ -397,41 +392,40 @@ run_pipeline_node(
 # is just a small part of actual trading decision.
 
 # %% [markdown]
-# Run simulation
-run_pipeline_node(
-    "reporting",
-    "simulate_strategy_node",
-    {
-        "y_test": y_test,
-        "y_predict": y_predict,
-        "params:n_simulations": 1,
-        "params:n_days": 100,
-    },
-)["strategy_simulation_plot"]
+# Run Simulation
+# run_pipeline_node(
+#     "reporting",
+#     "simulate_strategy_node",
+#     {
+#         "y_test": y_test,
+#         "y_predict": y_predict,
+#         "params:n_simulations": 1,
+#         "params:n_days": 100,
+#     },
+# )["strategy_simulation_plot"]
 
 # %% [markdown]
-# ### Predictions for the contest
-max_features_result.best_estimator_.predict(out9["test_df_clean"][important_features])
-y_pred = max_features_result.best_estimator_.predict_proba(
-    out9["test_df_clean"][important_features].fillna(0)
-)[:, 1]
-sub = out9["test_df_clean"].copy()
-sub["pred"] = y_pred
-y_pred = sub["pred"].transform(lambda x: x > x.median()).values
-
-submission = pd.Series(y_pred)
-submission.index = sub.index
-submission.name = target
-
-submission.to_csv("./data/07_model_output/submission.csv", index=True, header=True)
+# max_features_result.best_estimator_.predict(out9["test_df_clean"][important_features])
+# y_pred = max_features_result.best_estimator_.predict_proba(
+#     out9["test_df_clean"][important_features].fillna(0)
+# )[:, 1]
+# sub = out9["test_df_clean"].copy()
+# sub["pred"] = y_pred
+# y_pred = sub["pred"].transform(lambda x: x > x.median()).values
+#
+# submission = pd.Series(y_pred)
+# submission.index = sub.index
+# submission.name = target
+#
+# submission.to_csv("./data/07_model_output/submission.csv", index=True, header=True)
 # %% [markdown]
-# ### Key Findings:
+# ## Key Findings
 #
 # - All models are compared against the benchmark accuracy of 51.31%
 #    + It's not a perfect benchmark as the number comes from completely unseen data while
 #    models performance is evaluated on the part of the training set
 # - The tuned Gradient Boosting model significantly outperforms other models
-#    + but when submitted via QRT data challenge the performance wasn't great (**0.5066**)
+#    + But when submitted via QRT data challenge the performance wasn't great (**0.5066**)
 # - Hyperparameter tuning improved both Decision Tree and Gradient Boosting performance
 # - Gradient Boosting shows superior performance compared to Decision Trees, which is expected
 # - HistGradientBoostingClassifier is much faster than GradientBoostingClassifier without

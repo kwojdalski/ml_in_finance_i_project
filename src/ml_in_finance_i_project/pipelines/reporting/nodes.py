@@ -1,14 +1,14 @@
 # This function uses plotly.express
-import logging as log
 import sys
 from pathlib import Path
-from typing import Any, Dict, Optional
 
 import numpy as np
 import pandas as pd
 import plotly.express as px  # noqa:  F401
 import plotly.graph_objects as go
 import torch
+from kedro.config import MissingConfigException, OmegaConfigLoader
+from kedro.framework.project import settings
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -25,7 +25,17 @@ sys.path
 path = Path(__file__).parent.parent.parent
 sys.path.append(str(path))
 
-from utils import CAT_COLS, ID_COLS
+project_path = Path(__file__).parent.parent.parent.parent.parent
+conf_path = str(project_path / settings.CONF_SOURCE)
+conf_loader = OmegaConfigLoader(conf_source=conf_path)
+
+try:
+    conf_params = conf_loader["parameters"]
+except MissingConfigException:
+    conf_params = {}
+
+id_cols = conf_params["raw_data"]["id_cols"]
+cat_cols = conf_params["raw_data"]["cat_cols"]
 
 
 def plot_feature_importance(model, X_train: pd.DataFrame, threshold: float = 0.01):
@@ -41,18 +51,18 @@ def plot_feature_importance(model, X_train: pd.DataFrame, threshold: float = 0.0
     """
     # Create dataframe with feature importances
     features = X_train.drop(columns=["RET"], errors="ignore").columns.tolist()
-    feature_importances = pd.DataFrame(
+    feat_imp_df = pd.DataFrame(
         {"feature": features, "importance": model["model"].feature_importances_}
     )
 
-    feature_importances = feature_importances.sort_values("importance", ascending=True)
+    feat_imp_df = feat_imp_df.sort_values("importance", ascending=True)
 
     # Create bar plot
     fig = go.Figure()
     fig.add_trace(
         go.Bar(
-            x=feature_importances["importance"],
-            y=feature_importances["feature"],
+            x=feat_imp_df["importance"],
+            y=feat_imp_df["feature"],
             orientation="h",
             marker_color="steelblue",
         )
@@ -63,14 +73,14 @@ def plot_feature_importance(model, X_train: pd.DataFrame, threshold: float = 0.0
         title="Feature Importance",
         xaxis_title="Importance",
         yaxis_title="Features",
-        height=max(400, len(feature_importances) * 20),
+        height=max(400, len(feat_imp_df) * 20),
         width=1200,
         showlegend=False,
     )
     return fig
 
 
-def plot_nan_percentages(cleaned_train: pd.DataFrame) -> go.Figure:
+def plot_nan_percentages(train_df: pd.DataFrame) -> go.Figure:
     """Create a bar plot showing NaN percentages by category and subcategory.
 
     Args:
@@ -80,98 +90,38 @@ def plot_nan_percentages(cleaned_train: pd.DataFrame) -> go.Figure:
         plotly.graph_objects.Figure: A plotly figure containing the NaN percentage plot
     """
     # Calculate NaN percentages for each category and subcategory
-    plot_df = pd.concat(
-        [
-            cleaned_train.groupby(category).apply(
-                lambda x: pd.Series(
-                    {
-                        "Category": category,
-                        "Subcategory": x.name,
-                        "NaN_Percentage": (x.isna().any(axis=1).sum() / len(x) * 100),
-                    }
-                )
-            )
-            for category in CAT_COLS
-        ]
-    ).reset_index(drop=True)
+    # Calculate NaN percentages for each column
+    nan_percentages = train_df.isna().mean() * 100
 
-    # Create subplot figure
+    # Create dataframe for plotting
+    plot_df = pd.DataFrame(
+        {"Column": nan_percentages.index, "NaN_Percentage": nan_percentages.values}
+    )
+
+    # Sort by percentage
+    plot_df = plot_df.sort_values("NaN_Percentage", ascending=True)
+
+    # Create figure
     fig = go.Figure()
 
-    # Add bars for each category
-    for category in plot_df["Category"].unique():
-        cat_data = plot_df[plot_df["Category"] == category]
-        fig.add_trace(
-            go.Bar(
-                x=cat_data["Subcategory"],
-                y=cat_data["NaN_Percentage"],
-                name=category,
-            )
+    # Add bars
+    fig.add_trace(
+        go.Bar(
+            x=plot_df["NaN_Percentage"],
+            y=plot_df["Column"],
+            orientation="h",
+            marker_color="steelblue",
         )
+    )
 
     # Update layout
     fig.update_layout(
-        title="NaN Percentages by Category",
-        xaxis_title="Subcategory",
-        yaxis_title="Percentage (%)",
-        barmode="group",
-        height=600,
+        title="Missing Values Percentage by Column",
+        xaxis_title="Percentage of Missing Values (%)",
+        yaxis_title="Column",
+        height=max(400, len(plot_df) * 20),
         width=1200,
-        showlegend=True,
-    )
-
-    return fig
-
-
-def plot_na(train_df):
-    """Create plots showing missing value distributions."""
-    na_counts = train_df.isna().sum()
-    na_percentages = (na_counts / len(train_df)) * 100
-
-    # Create summary DataFrame
-    na_summary = pd.DataFrame(
-        {"Missing Values": na_counts, "Percentage": na_percentages}
-    )
-
-    # Sort by percentage of missing values
-    na_summary = na_summary.sort_values("Percentage", ascending=False)
-
-    # Filter to only show variables with missing values
-    na_summary = na_summary[na_summary["Missing Values"] > 0]
-
-    if len(na_summary) > 0:
-        log.info("\nVariables with missing values:")
-        log.info(na_summary)
-    else:
-        log.info("\nNo missing values found in any variables")
-
-    # Plot missing values distribution
-    na_summary["is_ret"] = na_summary.index.str.contains("RET")
-
-    # Create subplots
-    fig = go.Figure()
-
-    # Add bars for return and non-return variables
-    for is_ret in [True, False]:
-        subset = na_summary[na_summary["is_ret"] == is_ret]
-        fig.add_trace(
-            go.Bar(
-                x=subset.index,
-                y=subset["Percentage"],
-                name="Return Variables" if is_ret else "Other Variables",
-                marker_color="steelblue",
-            )
-        )
-
-    # Update layout
-    fig.update_layout(
-        title="Missing Values Distribution",
-        xaxis_title="Variables",
-        yaxis_title="Percentage of Missing Values (%)",
-        height=600,
-        width=1000,
-        showlegend=True,
-        xaxis_tickangle=45,
+        showlegend=False,
     )
 
     return fig
@@ -307,7 +257,7 @@ def plot_correlation_matrix(df):
         plotly.graph_objects.Figure: A plotly figure containing the correlation heatmap
     """
     # Compute correlation matrix
-    corr_matrix = df.drop(columns=[ID_COLS], errors="ignore").corr()
+    corr_matrix = df.drop(columns=[id_cols], errors="ignore").corr()
 
     # Create heatmap
     fig = go.Figure(
@@ -338,7 +288,7 @@ def plot_correlation_matrix(df):
 
 def calculate_model_metrics(
     y_true: np.ndarray, y_pred: np.ndarray, y_proba: np.ndarray
-) -> Dict[str, float]:
+) -> dict[str, float]:
     """Calculate comprehensive set of model metrics.
 
     Args:
@@ -387,7 +337,7 @@ def calculate_model_metrics(
 
 
 def get_model_predictions(
-    model: Any, X: np.ndarray, is_torch_model: bool = False
+    model, X: np.ndarray, is_torch_model: bool = False
 ) -> tuple[np.ndarray, np.ndarray]:
     """Get model predictions and probabilities.
 
@@ -414,8 +364,8 @@ def get_model_predictions(
 
 
 def calculate_benchmark_metrics(
-    metrics: Dict[str, float], benchmark: float = 0.5131
-) -> Dict[str, float]:
+    metrics: dict[str, float], benchmark: float = 0.5131
+) -> dict[str, float]:
     """Calculate benchmark comparison metrics.
 
     Args:
@@ -436,12 +386,12 @@ def calculate_benchmark_metrics(
 
 
 def aggregate_model_results(
-    base_dt: Optional[Any] = None,
-    grid_dt: Optional[dict] = None,
-    tuned_gb: Optional[dict] = None,
-    nn_model: Optional[Any] = None,
-    X_test: Optional[np.ndarray] = None,
-    y_test: Optional[np.ndarray] = None,
+    base_dt=None,
+    grid_dt=None,
+    tuned_gb=None,
+    nn_model=None,
+    X_test=None,
+    y_test=None,
 ) -> tuple[pd.DataFrame, dict]:
     """Aggregate comprehensive model results and metrics.
 

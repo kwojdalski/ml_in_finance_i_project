@@ -1,31 +1,27 @@
 import logging as log
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from scipy.stats import kurtosis, skew
+from kedro.config import MissingConfigException, OmegaConfigLoader
+from kedro.framework.project import settings
 from sklearn.metrics import auc, roc_curve
 from sklearn.model_selection import cross_val_score
 
-kfold = 2
-ID_COLS = [
-    "ID",
-    "STOCK",
-    "DATE",
-    "INDUSTRY",
-    "INDUSTRY_GROUP",
-    "SECTOR",
-    "SUB_INDUSTRY",
-]
-CAT_COLS = [
-    "INDUSTRY",
-    "INDUSTRY_GROUP",
-    "SECTOR",
-    "SUB_INDUSTRY",
-    "STOCK",
-    "DATE",
-]
+project_path = Path(__file__).parent.parent.parent
+sys.path.append(str(project_path))
+conf_path = str(project_path / settings.CONF_SOURCE)
+conf_loader = OmegaConfigLoader(conf_source=conf_path)
+
+try:
+    conf_params = conf_loader["parameters"]
+except MissingConfigException:
+    conf_params = {}
+
+id_cols = conf_params["raw_data"]["id_cols"]
+cat_cols = conf_params["raw_data"]["cat_cols"]
+kfold = conf_params["model_options"]["kfold"]
 
 
 def evaluation(model, X: pd.DataFrame, Y: pd.Series, kfold: int):
@@ -84,95 +80,6 @@ def compute_roc(
         plt.title("Receiver operating characteristic")
         plt.show()
     return fpr, tpr, auc_score
-
-
-def load_data(
-    x_train: str | Path,
-    y_train: str | Path,
-    x_test: str | Path,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Load training and test data, preprocess by:
-    - Loading CSV files
-    - Dropping NA values and ID columns
-    - Computing moving averages and mean returns
-    - Converting target to binary
-
-    Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: A tuple containing:
-            - train_df: Preprocessed training dataframe
-            - test_df: Preprocessed test dataframe
-    """
-    # Load data
-    x_train: pd.DataFrame = pd.read_csv("./data/x_train.csv")
-    y_train: pd.DataFrame = pd.read_csv("./data/y_train.csv")
-    train_df: pd.DataFrame = pd.concat([x_train, y_train], axis=1)
-    test_df: pd.DataFrame = pd.read_csv("./data/x_test.csv")
-
-    return train_df, test_df
-
-
-def drop_missing_returns(train_df: pd.DataFrame, n_days: int = 5) -> pd.DataFrame:
-    """Drop rows where all return features for the last n_days are missing.
-
-    Args:
-        train_df: DataFrame containing return features named RET_1, RET_2, etc.
-        n_days: Number of most recent days to check for missing returns
-
-    Returns:
-        DataFrame with rows dropped where all return features are missing
-    """
-    return_features = [f"RET_{day}" for day in range(1, n_days + 1)]
-
-    # Calculate proportion of missing values for each row
-    missing_prop = (
-        train_df[return_features].isna().sum(axis=1)
-        / train_df[return_features].shape[1]
-    )
-
-    # Drop rows where all return features are missing
-    return train_df[missing_prop < 1].copy()
-
-
-def calculate_statistics(data: pd.DataFrame) -> pd.Series:
-    """Calculate statistical measures for RET_1 and VOLUME_1 columns."""
-    stats: dict[str, float] = {}
-
-    # Helper function to calculate stats for a column
-    def get_column_stats(col_name: str) -> dict[str, float]:
-        series: pd.Series = data[col_name]
-        log_series: pd.Series = np.log(series.replace(0, np.nan)).dropna()
-        log_squared: pd.Series = log_series**2
-        base_stats: dict[str, float] = {
-            f"Mean_{col_name}": np.mean(series),
-            f"Skewness_{col_name}": skew(series.dropna()),
-            f"Kurtosis_{col_name}": kurtosis(series.dropna()),
-            f"Std_{col_name}": np.std(series),
-        }
-
-        log_stats: dict[str, float] = {
-            f"Log_Mean_{col_name}": np.mean(log_series),
-            f"Log_Skewness_{col_name}": skew(log_series.dropna()),
-            f"Log_Kurtosis_{col_name}": kurtosis(log_series.dropna()),
-            f"Log_Std_{col_name}": np.std(log_series),
-        }
-
-        squared_stats: dict[str, float] = {
-            f"Log_Squared_Skewness_{col_name}": skew(log_squared.dropna()),
-            f"Log_Squared_Kurtosis_{col_name}": kurtosis(log_squared.dropna()),
-            f"Log_Squared_Std_{col_name}": np.std(log_squared),
-        }
-
-        return {**base_stats, **log_stats, **squared_stats}
-
-    # Calculate stats for both RET_1 and VOLUME_1
-    stats.update(get_column_stats("RET_1"))
-    stats.update(get_column_stats("VOLUME_1"))
-
-    return pd.Series(stats)
-
-
-# %%
 
 
 def get_node_idx(pipeline, node_name):

@@ -13,8 +13,8 @@
 # ---
 
 # %% [markdown]
-# # Stock Market Movement Prediction: A Machine Learning Approach
-# ### Using ML Techniques to Forecast Next-Day Stock Price Movements
+# # <a id='toc1_'></a>[Stock Market Movement Prediction](#toc0_)
+# ### <a id='toc1_1_1_'></a>[Using ML Techniques to Forecast Next-Day Stock Price Movements](#toc0_)
 #
 # This project tackles a challenging binary classification problem in quantitative finance - predicting the directional movement
 # (up or down) of individual US stocks for the following trading day. The goal is to develop a machine learning model
@@ -28,36 +28,61 @@
 #
 # A public benchmark accuracy of **51.31%** was previously achieved using a Random Forest model with **5** days of historical data and
 # sector-level information. Our approach aims to improve upon this by incorporating more features and advanced modeling techniques.
-#
-# #### Project Roadmap
-# 1. **Comprehensive Data Preprocessing**
-#    - Robust data loading and validation
-#    - Sophisticated missing value imputation
-#    - Advanced feature engineering including technical indicators
-#    - Target encoding of categorical variables
-#
-# 2. **Model Implementation and Rigorous Evaluation**
-#    - Decision Tree Classifier
-#       - Baseline implementation (accuracy: **0.510**)
-#       - Advanced hyperparameter optimization (accuracy: **0.5325**)
-#    - XGBoost Classifier
-#       - Initial implementation (accuracy: **0.53**)
-#       - Extensive hyperparameter tuning (accuracy: **0.8775**)
-#    - Neural Network Architecture
-#       - Custom implementation achieving **0.5144** accuracy
-#
-# 3. **In-depth Model Analysis**
-#    - Comprehensive cross-validation assessment
-#    - Feature importance ranking and interpretation
-#    - Detailed ROC curve analysis
-#    - Confusion matrix evaluation
-#
+
 # %% [markdown]
-# ## Detailed Data Description
+# **Table of contents**<a id='toc0_'></a>
+# - [Stock Market Movement Prediction](#toc1_)
+#     - [Using ML Techniques to Forecast Next-Day Stock Price Movements](#toc1_1_1_)
+#   - [Data Description](#toc1_2_)
+#     - [Input Dataset Structure](#toc1_2_1_)
+#     - [Output Dataset Structure](#toc1_2_2_)
+#     - [Key Financial Calculations](#toc1_2_3_)
+#     - [Dataset Scale](#toc1_2_4_)
+#     - [Submission Guidelines](#toc1_2_5_)
+#   - [Implementation Strategy](#toc1_3_)
+#       - [Project Roadmap](#toc1_3_1_1_)
+#     - [Library Imports](#toc1_3_2_)
+#     - [Environment Configuration and Setup](#toc1_3_3_)
+#       - [Pipeline Node Execution Configuration](#toc1_3_3_1_)
+#         - [Environment Initialization](#toc1_3_3_1_1_)
+#   - [Data Loading and Initial Processing](#toc1_4_)
+#     - [Preprocessing Strategy](#toc1_4_1_)
+#       - [Visual Data Analysis](#toc1_4_1_1_)
+#       - [Initial Data Inspection](#toc1_4_1_2_)
+#       - [Dataset Information](#toc1_4_1_3_)
+#     - [Missing Value Across Categories](#toc1_4_2_)
+#       - [Possible Causes of Missing Data](#toc1_4_2_1_)
+#       - [Class Balance Analysis](#toc1_4_2_2_)
+#       - [Correlation Analysis](#toc1_4_2_3_)
+#     - [Key Findings:](#toc1_4_3_)
+#     - [Preprocessing data](#toc1_4_4_)
+#   - [Feature Engineering](#toc1_5_)
+#     - [Technical Indicator Implementation Using TA-Lib](#toc1_5_1_)
+#       - [Implemented Indicators:](#toc1_5_1_1_)
+#     - [Feature Selection Strategy](#toc1_5_2_)
+#       - [Columns Targeted for Removal](#toc1_5_2_1_)
+#     - [Technical Indicator Optimization](#toc1_5_3_)
+#       - [Indicator Selection Criteria](#toc1_5_3_1_)
+#     - [Data Quality Enhancement](#toc1_5_4_)
+#       - [Infinity Value Management](#toc1_5_4_1_)
+#     - [Final Data Cleaning](#toc1_5_5_)
+#       - [Quality Assurance Steps](#toc1_5_5_1_)
+#
+# <!-- vscode-jupyter-toc-config
+# 	numbering=false
+# 	anchor=true
+# 	flat=false
+# 	minLevel=1
+# 	maxLevel=6
+# 	/vscode-jupyter-toc-config -->
+# <!-- THIS CELL WILL BE REPLACED ON TOC UPDATE. DO NOT WRITE YOUR TEXT IN THIS CELL -->
+
+# %% [markdown]
+# ## <a id='toc1_2_'></a>[Data Description](#toc0_)
 #
 # The project utilizes three primary datasets provided in CSV format, split between training (inputs/outputs) and test inputs.
 #
-# ### Input Dataset Structure:
+# ### <a id='toc1_2_1_'></a>[Input Dataset Structure](#toc0_)
 # * **Identifier Features:**
 #   - ID: Unique row identifier
 #   - DATE: Anonymized date index
@@ -73,12 +98,12 @@
 #   - RET_1 to RET_20: Historical residual returns (20-day window)
 #   - VOLUME_1 to VOLUME_20: Historical relative trading volumes (20-day window)
 #
-# ### Output Dataset Structure:
+# ### <a id='toc1_2_2_'></a>[Output Dataset Structure](#toc0_)
 # * ID: Corresponding identifier
 # * RET: Binary target indicating return direction (1 = up, 0 = down)
 #
 # ------------------------------------------------------------------------------------------------
-# ### Key Financial Calculations
+# ### <a id='toc1_2_3_'></a>[Key Financial Calculations](#toc0_)
 #
 # **One-Day Return Formula:**
 # $$R^t = \frac{P_j^t}{P_j^{t-1}} - 1$$
@@ -98,62 +123,67 @@
 # $$
 #
 # ------------------------------------------------------------------------------------------------
-# ### Dataset Scale:
+# ### <a id='toc1_2_4_'></a>[Dataset Scale](#toc0_)
 # * Training set: 418,595 observations
 # * Test set: 198,429 observations
 #
-# ### Submission Guidelines:
+# ### <a id='toc1_2_5_'></a>[Submission Guidelines](#toc0_)
 # Predictions must be formatted as a two-column file (ID, RET) matching test data IDs.
 #
+
 # %% [markdown]
-# ## Detailed Implementation Strategy
+# ## <a id='toc1_3_'></a>[Implementation Strategy](#toc0_)
 #
 # Our implementation follows a systematic approach across four major phases:
-#
-# 1. **Advanced Data Loading and Preprocessing**
+# #### <a id='toc1_3_1_1_'></a>[Project Roadmap](#toc0_)
+# 1. **Data Loading and Preprocessing**
 #    - Robust data validation and quality checks
-#    - Sophisticated missing value treatment
+#    - Sophisticated missing value imputation
 #    - Implementation of TA-Lib technical indicators
-#    - Comprehensive data cleaning including:
+#    - Data cleaning including:
 #      - Infinity value handling
 #      - Duplicate column removal
 #      - Training/test split optimization (75%/25%)
 #
-# 2. **Sophisticated Feature Engineering**
-#    - Advanced technical indicator calculation:
+# 2. **Feature Engineering**
+#    - Technical indicator calculation:
 #      - Relative Strength Index (RSI)
 #      - On-Balance Volume (OBV)
 #      - Exponential Moving Averages (EMA)
-#    - Efficient data persistence using pickle format
-#    - Strategic feature selection and dimensionality reduction
+#    - Advanced feature engineering
+#    - Feature selection and dimensionality reduction
+#    - Target encoding of categorical variables
 #    - Removal of redundant technical indicators
 #
-# 3. **Comprehensive Model Development**
+# 3. **Model Development and Evaluation**
 #    - Decision Tree Classifier
-#       - Baseline model development
-#       - Advanced hyperparameter optimization
-#    - Gradient Boosting Implementation
-#       - Iterative parameter tuning
-#       - Multi-stage optimization process
+#       - Baseline implementation (accuracy: **0.510**)
+#       - Advanced hyperparameter optimization (accuracy: **0.5325**)
+#    - XGBoost Classifier
+#       - Initial implementation (accuracy: **0.53**)
+#       - Extensive hyperparameter tuning (accuracy: **0.8775**)
 #    - Neural Network Architecture
 #       - Custom feed-forward design
 #       - Advanced loss function implementation
+#       - Final accuracy: **0.5144**
 #
-# 4. **Thorough Model Evaluation**
-#    - Cross-model performance comparison
-#    - Detailed feature importance analysis
-#    - Comprehensive technical indicator assessment
-#    - In-depth overfitting analysis
+# 4. **Analysis and Validation**
+#    - Cross-validation assessment
+#    - Feature importance ranking and interpretation
+#    - ROC curve analysis
+#    - Confusion matrix evaluation
+#    - Technical indicator assessment
 #    - Benchmark comparison and validation
-#
+
 # %% [markdown]
-# ### Essential Library Imports
+# ## Library Imports
+
 # %%
 import sys
 from pathlib import Path
 
 try:
-    # vscode
+    # VS Code
     path = Path(__file__).parent.parent
     path = path / "src"
 except NameError:
@@ -169,6 +199,7 @@ kedro.ipython.load_ipython_extension(get_ipython())
 
 # %%
 import logging as log
+import warnings
 
 from IPython.display import Markdown as md
 
@@ -182,8 +213,7 @@ x_test_raw = catalog.load("x_test_raw")
 
 
 # %% [markdown]
-# ### Environment Configuration and Setup
-# Configuring the computational environment for optimal performance
+# ### <a id='toc1_3_3_'></a>[Environment Configuration and Setup](#toc0_)
 
 
 # %%
@@ -220,11 +250,11 @@ def setup_colab_environment():
 
 
 # %% [markdown]
-# #### Pipeline Node Execution Configuration
+# #### <a id='toc1_3_3_1_'></a>[Pipeline Node Execution Configuration](#toc0_)
 # Defining function for running specific pipeline nodes
 
 
-# %% Run a specific node from a pipeline.
+# %%
 def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
     """
     Executes a specific node within the data processing pipeline.
@@ -242,7 +272,7 @@ def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
 
 
 # %% [markdown]
-# ##### Environment Initialization
+# ##### <a id='toc1_3_3_1_1_'></a>[Environment Initialization](#toc0_)
 
 # %%
 IN_COLAB = setup_colab_environment()
@@ -257,40 +287,35 @@ conf_params = context.config_loader.get("parameters")
 target = conf_params["model_options"]["target"]
 kfold = conf_params["model_options"]["kfold"]
 
-
 # %% [markdown]
-# ## Data Loading and Initial Processing
+# ## <a id='toc1_4_'></a>[Data Loading and Initial Processing](#toc0_)
 #
-# ### Preprocessing Strategy
+# ### <a id='toc1_4_1_'></a>[Preprocessing Strategy](#toc0_)
 # * Handling of missing values (NA removal)
 # * Target variable encoding (boolean to binary conversion)
 # * Optional data subsetting capabilities:
 #   - Fraction loading for rapid prototyping
 #   - Time window selection (e.g., using first n days)
+
 # %%
-# Set data directory based on environment
-# Run data processing pipeline node
 out = run_pipeline_node(
     "data_processing",
-    "load_and_preprocess_data_node",
+    "load_data_node",
     {
         "x_train_raw": x_train_raw,
         "y_train_raw": y_train_raw,
         "x_test_raw": x_test_raw,
-        "params:remove_id_cols": conf_params["remove_id_cols"],
-        "params:n_days": conf_params["n_days"],
         "params:sample_n": conf_params["sample_n"],
     },
 )
-
-
+()
 # %% [markdown]
-# #### Visual Data Analysis
+# #### <a id='toc1_4_1_1_'></a>[Visual Data Analysis](#toc0_)
 #
 # * Time series visualization of returns and volume
 # * Target variable (RET) highlighted in red for clarity
+
 # %%
-# Plot returns and volume
 run_pipeline_node(
     "reporting",
     "plot_returns_volume_node",
@@ -300,15 +325,17 @@ run_pipeline_node(
     },
 )["returns_volume_plot"]
 
-
 # %% [markdown]
-# #### Initial Data Inspection
+# #### <a id='toc1_4_1_2_'></a>[Initial Data Inspection](#toc0_)
 #
 # From visual inspection, we can see that there are missing / invalid values in the data
+
 # %%
 out["test_df"].head()
+
 # %% [markdown]
-# #### Comprehensive Dataset Information
+# #### <a id='toc1_4_1_3_'></a>[Dataset Information](#toc0_)
+
 # %%
 print("Training Dataset Info:")
 out["train_df"].info()
@@ -316,9 +343,10 @@ print("\nTest Dataset Info:")
 out["test_df"].info()
 
 # %% [markdown]
-# ### Missing Value Across Categories
+# ### <a id='toc1_4_2_'></a>[Missing Value Across Categories](#toc0_)
 #
-# #### PossibleCauses of Missing Data:
+#
+# #### <a id='toc1_4_2_1_'></a>[Possible Causes of Missing Data](#toc0_)
 #
 # 1. **Market Structure**
 #    - Weekend/holiday market closures
@@ -328,7 +356,7 @@ out["test_df"].info()
 #    - Collection inconsistencies
 #    - Date anonymization effects
 #
-# 3. **Calculation Artifacts**
+# 3. **Technical Computation Effects**
 #    - Rolling window calculations (20-day impact)
 #    - Weekend/holiday volume calculations
 #
@@ -338,7 +366,6 @@ out["test_df"].info()
 #    - Low liquidity periods
 #
 # 5. **Intentional Design**
-#    
 
 # %%
 run_pipeline_node(
@@ -348,41 +375,37 @@ run_pipeline_node(
 )["nan_percentages_plot"]
 
 # %% [markdown]
-# #### Class Balance Analysis
+# #### <a id='toc1_4_2_2_'></a>[Class Balance Analysis](#toc0_)
 #
 # The target variable shows near-perfect class balance, which is expected given:
 # 1. The target represents return sign (+/-)
-# 2. Market efficiency theory suggests roughly equal probability of up/down movements
+# 2. Market efficiency theory implies roughly equal probability of up/down movements
 # 3. Slight positive bias may indicate:
 #    - General market upward trend
 #    - Risk premium effects
-#    - Survivorship bias in the dataset 
+#    - Survivorship bias in the dataset
+
 # %%
 md(
     f"Class imbalance: {out['train_df']['RET'].value_counts(normalize=True)[0] * 100:.2f}%"
     + f" {out['train_df']['RET'].value_counts(normalize=True)[1] * 100:.2f}%"
 )
 
-
 # %% [markdown]
-# #### Correlation Analysis
+# #### <a id='toc1_4_2_3_'></a>[Correlation Analysis](#toc0_)
 #
-# ### Key Findings:
+# ### <a id='toc1_4_3_'></a>[Key Findings:](#toc0_)
 #
 # 1. **Return Correlations**
-#    - Minimal cross-stock return correlation (market efficiency)
+#    - Minimal cross-period return correlation (market efficiency)
 #    - Stronger correlations between adjacent time periods
 #    - Pattern suggests market efficiency (limited predictability)
 #
 # 2. **Volume Relationships**
-#    - High volume autocorrelation due to calculation method
+#    - Relatively high volume autocorrelation
 #    - Volume clustering indicates market regime patterns
 #    - Strong volume-volatility relationship
-#
-# 3. **Lead-Lag Effects**
-#    - Significant volume-return relationship
-#    - Previous day's volume predicts next day's return
-#    - Potential trading signal indicator
+
 # %%
 out_corr = run_pipeline_node(
     "reporting",
@@ -391,36 +414,43 @@ out_corr = run_pipeline_node(
 )
 out_corr["correlation_matrix_plot"]
 # %% [markdown]
-#
+# ### <a id='toc1_4_4_'></a>[Preprocessing data](#toc0_)
+# * Dropping rows with missing returns
+# * Dropping NA values and ID columns
+# * Converting target to binary
 
+# %%
+out_preprocessed = run_pipeline_node(
+    "data_processing",
+    "preprocess_data_node",
+    {"train_df": out["train_df"], "test_df": out["test_df"]},
+)
 # %% [markdown]
-# ## Feature Engineering
+# ## <a id='toc1_5_'></a>[Feature Engineering](#toc0_)
 #
 # * Extending variable set from competition organizers
-# * Feature development based on technical analysisindicators
+# * Feature development based on technical analysis indicators
 # * Statistical feature calculation
 
 # %%
-import warnings
-
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     out2 = run_pipeline_node(
         "data_processing",
         "calculate_statistical_features_node",
         {
-            "train_df": out["train_df"],
-            "test_df": out["test_df"],
+            "train_df_preprocessed": out_preprocessed["train_df_preprocessed"],
+            "test_df_preprocessed": out_preprocessed["test_df_preprocessed"],
         },
     )
 
 # %% [markdown]
-# ### Technical Indicator Implementation Using TA-Lib
+# ### <a id='toc1_5_1_'></a>[Technical Indicator Implementation Using TA-Lib](#toc0_)
 #
 # This section implements advanced technical analysis indicators for both training and test datasets.
 # Results are persisted to optimize computation time.
 #
-# ### Implemented Indicators:
+# #### <a id='toc1_5_1_1_'></a>[Implemented Indicators:](#toc0_)
 # 1. **Volume Indicators**
 #    - On-Balance Volume (OBV)
 #
@@ -437,8 +467,9 @@ with warnings.catch_warnings():
 #    - Midpoint Price (MIDPOINT) - 10 period
 #
 # Note: Computation is time-intensive for full dataset
+
 # %%
-calculate = True
+calculate = False
 
 if calculate:
     out3 = run_pipeline_node(
@@ -451,7 +482,7 @@ if calculate:
         },
     )
 else:
-    out5 = get_node_outputs(
+    out3 = get_node_outputs(
         pipelines["data_processing"].nodes[
             get_node_idx(
                 pipelines["data_processing"], "calculate_technical_indicators_node"
@@ -461,20 +492,20 @@ else:
     )
 
 # %% [markdown]
-# ### Feature Selection Strategy
+# ### <a id='toc1_5_2_'></a>[Feature Selection Strategy](#toc0_)
 #
-# #### Columns Targeted for Removal:
+# #### <a id='toc1_5_2_1_'></a>[Columns Targeted for Removal](#toc0_)
 # 1. **Identifier Columns**
 #    - While potentially predictive, excluded for model generalization
 #    - Includes: ID, STOCK, DATE
 #
-# 2. **Categorical Features**
+# 2. ** Remaining Categorical Features**
 #    - INDUSTRY, INDUSTRY_GROUP, SECTOR, SUB_INDUSTRY
 #    - Used in feature engineering but removed from final model
 #
 # Rationale: Focus on price/volume dynamics rather than static characteristics
-# %%
 
+# %%
 out4 = run_pipeline_node(
     "data_processing",
     "drop_id_cols_node",
@@ -485,20 +516,21 @@ out4 = run_pipeline_node(
 )
 
 # %% [markdown]
-# ### Technical Indicator Optimization
+# ### <a id='toc1_5_3_'></a>[Technical Indicator Optimization](#toc0_)
 #
-# #### Indicator Selection Criteria:
+# #### <a id='toc1_5_3_1_'></a>[Indicator Selection Criteria](#toc0_)
 # 1. **Relevance**
 #    - Remove indicators with minimal predictive value
 #    - Focus on non-redundant signals
 #
-# 2. **Complexity Management**
+# 2. **Complexity Reduction**
 #    - Reduce feature space to prevent overfitting
 #    - Example: Similar-period SMAs offer limited additional value
 #
 # 3. **Model Performance Impact**
 #    - Retain indicators that demonstrate predictive power
 #    - Remove those that may introduce noise
+
 # %%
 out5 = run_pipeline_node(
     "data_processing",
@@ -510,16 +542,15 @@ out5 = run_pipeline_node(
     },
 )
 
-
 # %% [markdown]
-# ### Data Quality Enhancement
+# ### <a id='toc1_5_4_'></a>[Data Quality Enhancement](#toc0_)
 #
-# #### Infinity Value Management
+# #### <a id='toc1_5_4_1_'></a>[Infinity Value Management](#toc0_)
 # * Critical for model stability
 # * Particularly important for neural network training
 # * Prevents numerical computation issues
 
-# %% Filter out infinity values
+# %%
 out6 = run_pipeline_node(
     "data_processing",
     "filter_infinity_values_node",
@@ -530,11 +561,10 @@ out6 = run_pipeline_node(
     },
 )
 
-
 # %% [markdown]
-# ### Final Data Cleaning
+# ### <a id='toc1_5_5_'></a>[Final Data Cleaning](#toc0_)
 #
-# #### Quality Assurance Steps:
+# #### <a id='toc1_5_5_1_'></a>[Quality Assurance Steps](#toc0_)
 # 1. **Duplicate Resolution**
 #    - Remove redundant columns
 #    - Ensure data uniqueness

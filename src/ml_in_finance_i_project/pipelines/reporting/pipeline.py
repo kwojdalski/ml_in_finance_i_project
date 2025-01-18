@@ -5,7 +5,6 @@ from .nodes import (
     plot_correlation_matrix,
     plot_feature_importance,
     plot_model_accuracy,
-    plot_na,
     plot_nan_percentages,
     plot_ret_and_vol,
 )
@@ -38,13 +37,6 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs="train_df",
                 outputs="nan_percentages_plot",
                 name="plot_nan_percentages_node",
-                tags=["reporting", "visualization"],
-            ),
-            node(
-                func=plot_na,
-                inputs="train_df",
-                outputs="na_distribution_plot",
-                name="plot_na_distribution_node",
                 tags=["reporting", "visualization"],
             ),
             node(

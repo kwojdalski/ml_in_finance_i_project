@@ -51,6 +51,7 @@ raw_data:
   - SECTOR
   y_train_cols: ["RET"]
   id_cols: ["ID", "STOCK", "DATE", "INDUSTRY", "INDUSTRY_GROUP", "SECTOR", "SUB_INDUSTRY"]
+  cat_cols: ["INDUSTRY", "INDUSTRY_GROUP", "SECTOR", "SUB_INDUSTRY", "STOCK", "DATE"]
 
 n_days: 5
 sample_n: 10000

@@ -14,31 +14,23 @@ conf_loader = OmegaConfigLoader(".", base_env="", default_run_env="")
 conf_params = conf_loader["parameters"]
 
 
-def load_and_preprocess_data(
+def load_data(
     x_train: str | Path | pd.DataFrame,
     y_train: str | Path | pd.DataFrame,
     x_test: str | Path | pd.DataFrame,
-    remove_id_cols: bool = True,
-    n_days: int = 5,
     sample_n: int | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Load and preprocess training and test data by:
-    - Loading CSV files
-    - Dropping rows with missing returns
-    - Dropping NA values and ID columns
-    - Converting target to binary
+    Load training and test data from files or DataFrames and optionally sample.
 
     Args:
         x_train: Training features data source
         y_train: Training target data source
         x_test: Test features data source
-        remove_id_cols: Whether to remove ID columns
-        n_days: Number of most recent days to check for missing returns
         sample_n: Optional number of samples to take from training data
 
     Returns:
-        tuple[pd.DataFrame, pd.DataFrame]: Preprocessed training and test dataframes
+        tuple[pd.DataFrame, pd.DataFrame]: Raw training and test dataframes
     """
     # Load data
     if isinstance(x_train, str | Path):
@@ -51,6 +43,31 @@ def load_and_preprocess_data(
     else:
         test_df: pd.DataFrame = x_test
 
+    # Sample training data if requested
+    if sample_n is not None:
+        train_df = train_df.sample(n=sample_n, random_state=42)
+        test_df = test_df.sample(n=sample_n, random_state=42)
+        log.debug(f"Sampled {sample_n} rows from train_df and test_df")
+
+    return train_df, test_df
+
+
+def preprocess_data(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    remove_id_cols: bool = False,
+    n_days: int = 5,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Args:
+        train_df: Raw training dataframe
+        test_df: Raw test dataframe
+        remove_id_cols: Whether to remove ID columns
+        n_days: Number of most recent days to check for missing returns
+
+    Returns:
+        tuple[pd.DataFrame, pd.DataFrame]: Preprocessed training and test dataframes
+    """
     # Drop rows where all recent return features are missing
     return_features = [f"RET_{day}" for day in range(1, n_days + 1)]
     missing_prop = (
@@ -74,19 +91,17 @@ def load_and_preprocess_data(
 
     # Drop ID columns if requested
     if remove_id_cols:
-        train_df = train_df.drop(conf_params["raw_data"]["id_cols"], axis=1)
-        test_df = test_df.drop(conf_params["raw_data"]["id_cols"], axis=1)
+        train_df = train_df.drop(
+            conf_params["raw_data"]["id_cols"], axis=1, errors="ignore"
+        )
+        test_df = test_df.drop(
+            conf_params["raw_data"]["id_cols"], axis=1, errors="ignore"
+        )
         log.debug(f"Dropped ID columns {conf_params['raw_data']['id_cols']}")
 
     # Convert target to binary
     sign_of_return: LabelEncoder = LabelEncoder()
     train_df["RET"] = sign_of_return.fit_transform(train_df["RET"])
-
-    # Sample training data if requested
-    if sample_n is not None:
-        train_df = train_df.sample(n=sample_n, random_state=42)
-        test_df = test_df.sample(n=sample_n, random_state=42)
-        log.debug(f"Sampled {sample_n} rows from train_df and test_df")
 
     return train_df, test_df
 
@@ -324,31 +339,19 @@ def calculate_statistical_features(
     return train_df, test_df, new_features
 
 
-def remove_nan_rows(
-    X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.Series, y_test: pd.Series
-) -> tuple:
+def remove_nan_rows(train_df: pd.DataFrame) -> tuple:
     """Remove rows containing NaN values from training data.
 
     Args:
-        X_train: Training features
-        X_test: Test features
-        y_train: Training target
-        y_test: Test target
+        train_df: Training dataframe
 
     Returns:
         Tuple containing cleaned X_train, X_test, y_train, y_test
     """
-    nan_mask = X_train.isna().any(axis=1)
-    X_train_clean = X_train[~nan_mask]
-    y_train_clean = y_train[~nan_mask]
-    # Fill NaN values in test set using nearest neighbor imputation
+    nan_mask = train_df.isna().any(axis=1)
+    train_clean = train_df[~nan_mask]
 
-    imputer = KNNImputer(n_neighbors=5)
-    X_test_clean = pd.DataFrame(
-        imputer.fit_transform(X_test), columns=X_test.columns, index=X_test.index
-    )
-
-    return X_train_clean, X_test_clean, y_train_clean, y_test
+    return train_clean
 
 
 def remove_duplicates_and_nans(
@@ -369,29 +372,20 @@ def remove_duplicates_and_nans(
         - Cleaned train DataFrame
         - Cleaned test DataFrame
     """
-    # First remove duplicated columns
-    train_duplicates = train_df_filtered.columns[
-        train_df_filtered.columns.duplicated()
-    ].tolist()
-    test_duplicates = test_df_filtered.columns[
-        test_df_filtered.columns.duplicated()
-    ].tolist()
-    duplicated_cols = list(set(train_duplicates) | set(test_duplicates))
-
     # Remove duplicated columns
-    train_filtered = train_df_filtered.loc[:, ~train_df_filtered.columns.duplicated()]
-    test_filtered = test_df_filtered.loc[:, ~test_df_filtered.columns.duplicated()]
+    train_filt = train_df_filtered.loc[:, ~train_df_filtered.columns.duplicated()]
+    test_filt = test_df_filtered.loc[:, ~test_df_filtered.columns.duplicated()]
 
     # Then handle NaN values
-    nan_mask = train_filtered.isna().any(axis=1)
-    train_clean = train_filtered[~nan_mask]
+    nan_mask = train_filt.isna().any(axis=1)
+    train_clean = train_filt[~nan_mask]
 
     # Fill NaN values in test set using KNN imputation
     imputer = KNNImputer(n_neighbors=5)
     test_clean = pd.DataFrame(
-        imputer.fit_transform(test_filtered),
-        columns=test_filtered.columns,
-        index=test_filtered.index,
+        imputer.fit_transform(test_filt),
+        columns=test_filt.columns,
+        index=test_filt.index,
     )
 
     return train_clean, test_clean
