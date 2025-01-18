@@ -214,3 +214,6 @@ test_df_clean:
   filepath: data/05_model_input/test_df_clean.pkl
   type: pickle.PickleDataset
 
+model_results_dict:
+  filepath: data/07_model_output/model_results_dict.pkl
+  type: pickle.PickleDataset

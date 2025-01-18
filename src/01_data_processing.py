@@ -253,7 +253,7 @@ run_pipeline_node(
     "plot_returns_volume_node",
     {
         "train_df": out["train_df"],
-        "params:example_row_id": 43340,
+        "params:example_row_id": 2,
     },
 )["returns_volume_plot"]
 

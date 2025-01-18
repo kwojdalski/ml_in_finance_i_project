@@ -177,7 +177,7 @@ def plot_na(train_df):
     return fig
 
 
-def plot_model_accuracy(model_results):
+def plot_model_accuracy(model_results: pd.DataFrame):
     """Plot accuracy comparison of different models.
 
     Args:
@@ -186,40 +186,44 @@ def plot_model_accuracy(model_results):
     Returns:
         plotly.graph_objects.Figure: A plotly figure showing model accuracy comparison
     """
-    plot_df = pd.DataFrame(
-        {"Model": model_results.keys(), "Accuracy": model_results.values()}
-    ).sort_values("Accuracy")
-
-    fig = go.Figure()
-
-    # Add bar trace
-    fig.add_trace(
-        go.Bar(
-            x=plot_df["Model"],
-            y=plot_df["Accuracy"],
-            marker_color="steelblue",
-        )
+    # Create faceted plot by Statistic
+    model_results = model_results[model_results["Statistic"] == "accuracy"]
+    fig = px.bar(
+        model_results,
+        x="Model",
+        y="value",
+        facet_col="Statistic",
+        color="Model",
+        facet_col_wrap=3,  # Show 3 plots per row
+        height=800,
+        width=1200,
     )
 
-    # Add benchmark line
-    fig.add_hline(
-        y=0.5131,
-        line_dash="dash",
-        line_color="red",
-        annotation_text="Benchmark (0.5131)",
-        annotation_position="bottom left",
-    )
+    # Add benchmark line to each facet
+    for annotation in fig.layout.annotations:
+        if "accuracy" in annotation.text.lower():
+            fig.add_hline(
+                y=0.5131,
+                line_dash="dash",
+                line_color="red",
+                annotation_text="Benchmark (0.5131)",
+                annotation_position="bottom left",
+                # row=annotation.row,
+                # col=annotation.col,
+            )
 
     # Update layout
     fig.update_layout(
-        title="Model Accuracy Comparison",
-        xaxis_title="Model",
-        yaxis_title="Accuracy Score",
-        height=600,
-        width=800,
-        showlegend=False,
-        yaxis_range=[0.5, plot_df["Accuracy"].max() * 1.1],
+        title="Model Performance Metrics",
+        showlegend=True,
+        yaxis_title="Value",
     )
+
+    # Update facet formatting
+    fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+
+    # Set free y-axis scales for each facet
+    fig.update_yaxes(matches=None)
 
     return fig
 
@@ -495,7 +499,7 @@ def aggregate_model_results(
     X_test: Optional[np.ndarray] = None,
     y_test: Optional[np.ndarray] = None,
     X_test_selected: Optional[np.ndarray] = None,
-) -> dict:
+) -> tuple[pd.DataFrame, dict]:
     """Aggregate comprehensive model results and metrics.
 
     Args:
@@ -520,7 +524,7 @@ def aggregate_model_results(
 
     # Tuned Decision Tree
     if grid_dt is not None and X_test is not None:
-        y_pred, y_proba = get_model_predictions(grid_dt["best_model"], X_test)
+        y_pred, y_proba = get_model_predictions(grid_dt["best_model"], X_test_selected)
         tuned_dt_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
         all_metrics["tuned_decision_tree"] = calculate_benchmark_metrics(
             tuned_dt_metrics
@@ -536,7 +540,7 @@ def aggregate_model_results(
         }
 
         for stage_name, model in gb_stages.items():
-            y_pred, y_proba = get_model_predictions(model, X_test)
+            y_pred, y_proba = get_model_predictions(model, X_test_selected)
             stage_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
             all_metrics[stage_name] = calculate_benchmark_metrics(stage_metrics)
 
@@ -562,5 +566,11 @@ def aggregate_model_results(
         for k, v in all_metrics.items()
         for k2, v2 in (v.items() if isinstance(v, dict) else {k: v}.items())
     }
+    model_results = (
+        pd.DataFrame(all_metrics)
+        .T.reset_index()
+        .rename(columns={"index": "Model"})
+        .melt(id_vars=["Model"], var_name="Statistic")
+    )
     # return all_metrics
-    return all_metrics_flattened
+    return model_results, all_metrics_flattened

@@ -194,7 +194,7 @@ model_fit(
     grid_dt["best_model"],
     X_train_selected,
     y_train,
-    important_features,
+    X_train_selected.columns,
     printFeatureImportance=True,
 )
 
@@ -232,7 +232,7 @@ gbm_classifier = run_pipeline_node(
     "data_science",
     "train_gradient_boosting_node",
     {
-        "X_train": X_train,
+        "X_train_selected": X_train_selected,
         "y_train": y_train,
         "parameters": conf_params,
     },
@@ -270,7 +270,7 @@ tuned_gb = run_pipeline_node(
     "tune_gradient_boosting_node",
     {
         "base_gb": gbm_classifier,
-        "X_train": X_train,
+        "X_train_selected": X_train_selected,
         "y_train": y_train,
     },
 )["tuned_gb"]
@@ -295,9 +295,9 @@ max_features_result = tuned_gb["max_features_result"]
 # %%
 model_fit(
     max_features_result.best_estimator_,
-    X_train,
+    X_train_selected,
     y_train,
-    important_features,
+    X_train_selected.columns,
     roc=True,
     printFeatureImportance=True,
 )
@@ -361,14 +361,14 @@ model_results = run_pipeline_node(
     "aggregate_model_results_node",
     {
         "base_dt": base_dt,
-        "grid_dt": grid_dt["best_model"],
+        "grid_dt": grid_dt,
         "tuned_gb": tuned_gb,
         "nn_model": nn_model,
         "X_test": X_test,
         "y_test": y_test,
         "X_test_selected": X_test_selected,
     },
-)["model_results_dict"]
+)["model_results"]
 
 # %% [markdown]
 # Create dictionary of model results including stepping stone models
@@ -381,6 +381,7 @@ run_pipeline_node(
         "model_results": model_results,
     },
 )["model_accuracy_plot"]
+
 # %% [markdown]
 # ### Simulation
 # Simulation of actual returns based on predictions coming from models.
@@ -412,16 +413,16 @@ run_pipeline_node(
 
 # %% [markdown]
 # ### Predictions for the contest
-max_features_result.best_estimator_.predict(out9["test_df_clean"])
+max_features_result.best_estimator_.predict(out9["test_df_clean"][important_features])
 y_pred = max_features_result.best_estimator_.predict_proba(
-    out9["test_df_clean"].fillna(0)
+    out9["test_df_clean"][important_features].fillna(0)
 )[:, 1]
 sub = out9["test_df_clean"].copy()
 sub["pred"] = y_pred
 y_pred = sub["pred"].transform(lambda x: x > x.median()).values
 
 submission = pd.Series(y_pred)
-submission.index = sub.index + 418595
+submission.index = sub.index
 submission.name = target
 
 submission.to_csv("./data/07_model_output/submission.csv", index=True, header=True)

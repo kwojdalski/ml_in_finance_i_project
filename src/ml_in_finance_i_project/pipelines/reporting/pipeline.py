@@ -50,7 +50,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=plot_model_accuracy,
-                inputs="all_metrics",
+                inputs="model_results",
                 outputs="model_accuracy_plot",
                 name="plot_model_accuracy_node",
                 tags=["reporting", "visualization"],
@@ -73,7 +73,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "y_test",
                     "X_test_selected",
                 ],
-                outputs="all_metrics",
+                outputs=["model_results", "all_metrics"],
                 name="aggregate_model_results_node",
                 tags=["reporting", "metrics"],
             ),

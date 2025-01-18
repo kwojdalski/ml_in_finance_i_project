@@ -50,14 +50,14 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=train_gradient_boosting,
-                inputs=["X_train", "y_train", "parameters"],
+                inputs=["X_train_selected", "y_train", "parameters"],
                 outputs="base_gb",
                 name="train_gradient_boosting_node",
                 tags=["model_training", "gradient_boosting"],
             ),
             node(
                 func=tune_gradient_boosting,
-                inputs=["base_gb", "X_train", "y_train"],
+                inputs=["base_gb", "X_train_selected", "y_train"],
                 outputs="tuned_gb",
                 name="tune_gradient_boosting_node",
                 tags=["model_tuning", "gradient_boosting"],
