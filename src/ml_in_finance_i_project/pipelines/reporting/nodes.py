@@ -64,7 +64,7 @@ def plot_feature_importance(model, X_train: pd.DataFrame, threshold: float = 0.0
         xaxis_title="Importance",
         yaxis_title="Features",
         height=max(400, len(feature_importances) * 20),
-        width=800,
+        width=1200,
         showlegend=False,
     )
     return fig
@@ -116,7 +116,7 @@ def plot_nan_percentages(cleaned_train: pd.DataFrame) -> go.Figure:
         yaxis_title="Percentage (%)",
         barmode="group",
         height=600,
-        width=1000,
+        width=1200,
         showlegend=True,
     )
 
@@ -195,7 +195,7 @@ def plot_model_accuracy(model_results: pd.DataFrame):
         facet_col="Statistic",
         color="Model",
         facet_col_wrap=3,  # Show 3 plots per row
-        height=800,
+        height=1200,
         width=1200,
     )
 
@@ -288,8 +288,8 @@ def plot_ret_and_vol(train_df: pd.DataFrame, row_id: int = 24) -> go.Figure:
         title="Returns and Volume Over Time",
         xaxis_title="Days to Target",
         yaxis_title="Return / Volume",
-        height=600,
-        width=800,
+        height=800,
+        width=1200,
         showlegend=True,
     )
 
@@ -328,8 +328,8 @@ def plot_correlation_matrix(df):
     # Update layout
     fig.update_layout(
         title="Correlation Matrix",
-        height=800,
-        width=800,
+        height=1200,
+        width=1200,
         xaxis_tickangle=90,
     )
 

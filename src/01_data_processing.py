@@ -134,18 +134,23 @@
 import sys
 from pathlib import Path
 
-path = Path(__file__).parent.parent
-path = path / "src"
+try:
+    # vscode
+    path = Path(__file__).parent.parent
+    path = path / "src"
+except NameError:
+    # jupyter notebook
+    path = Path().absolute().parent
 sys.path.append(str(path))
 
 import kedro.ipython
+from kedro.ipython import get_ipython
 
 kedro.ipython.load_ipython_extension(get_ipython())
 
 
 # %%
 import logging as log
-from pathlib import Path
 
 from IPython.display import Markdown as md
 
