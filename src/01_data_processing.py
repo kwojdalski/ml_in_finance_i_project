@@ -14,19 +14,19 @@
 
 # %% [markdown]
 # # Stock Market Movement Prediction: A Machine Learning Approach
-# ### Using Advanced ML Techniques to Forecast Next-Day Stock Price Movements
+# ### Using ML Techniques to Forecast Next-Day Stock Price Movements
 #
 # This project tackles a challenging binary classification problem in quantitative finance - predicting the directional movement
-# (up or down) of individual US stocks for the following trading day. The goal is to develop a sophisticated machine learning model
+# (up or down) of individual US stocks for the following trading day. The goal is to develop a machine learning model
 # that can provide data-driven insights to support investment decision-making.
 #
-# The model leverages a comprehensive feature set including:
-# - 20 days of historical price returns
-# - 20 days of trading volume data
+# The model leverages a feature set including:
+# - **20** days of historical price returns
+# - **20** days of trading volume data
 # - Categorical stock metadata (industry, sector, etc.)
 # - Technical indicators and statistical features
 #
-# A public benchmark accuracy of 51.31% was previously achieved using a Random Forest model with 5 days of historical data and
+# A public benchmark accuracy of **51.31%** was previously achieved using a Random Forest model with **5** days of historical data and
 # sector-level information. Our approach aims to improve upon this by incorporating more features and advanced modeling techniques.
 #
 # #### Project Roadmap
@@ -38,13 +38,13 @@
 #
 # 2. **Model Implementation and Rigorous Evaluation**
 #    - Decision Tree Classifier
-#       - Baseline implementation (accuracy: 0.510)
-#       - Advanced hyperparameter optimization (accuracy: 0.5325)
+#       - Baseline implementation (accuracy: **0.510**)
+#       - Advanced hyperparameter optimization (accuracy: **0.5325**)
 #    - XGBoost Classifier
-#       - Initial implementation (accuracy: 0.53)
-#       - Extensive hyperparameter tuning (accuracy: 0.8775)
+#       - Initial implementation (accuracy: **0.53**)
+#       - Extensive hyperparameter tuning (accuracy: **0.8775**)
 #    - Neural Network Architecture
-#       - Custom implementation achieving 0.5144 accuracy
+#       - Custom implementation achieving **0.5144** accuracy
 #
 # 3. **In-depth Model Analysis**
 #    - Comprehensive cross-validation assessment
@@ -57,7 +57,7 @@
 #
 # The project utilizes three primary datasets provided in CSV format, split between training (inputs/outputs) and test inputs.
 #
-# ### Input Dataset Structure (47 columns):
+# ### Input Dataset Structure:
 # * **Identifier Features:**
 #   - ID: Unique row identifier
 #   - DATE: Anonymized date index
@@ -221,7 +221,7 @@ def setup_colab_environment():
 
 # %% [markdown]
 # #### Pipeline Node Execution Configuration
-# Defining core functionality for running specific pipeline nodes
+# Defining function for running specific pipeline nodes
 
 
 # %% Run a specific node from a pipeline.
@@ -262,7 +262,7 @@ kfold = conf_params["model_options"]["kfold"]
 # ## Data Loading and Initial Processing
 #
 # ### Preprocessing Strategy
-# * Systematic handling of missing values (NA removal)
+# * Handling of missing values (NA removal)
 # * Target variable encoding (boolean to binary conversion)
 # * Optional data subsetting capabilities:
 #   - Fraction loading for rapid prototyping
@@ -304,9 +304,7 @@ run_pipeline_node(
 # %% [markdown]
 # #### Initial Data Inspection
 #
-# * Raw data quality assessment
-# * Identification of data cleaning requirements
-# * Missing value patterns
+# From visual inspection, we can see that there are missing / invalid values in the data
 # %%
 out["test_df"].head()
 # %% [markdown]
@@ -318,9 +316,9 @@ print("\nTest Dataset Info:")
 out["test_df"].info()
 
 # %% [markdown]
-# #### Missing Value Analysis Across Categories
+# ### Missing Value Across Categories
 #
-# ### Common Causes of Missing Data:
+# #### PossibleCauses of Missing Data:
 #
 # 1. **Market Structure**
 #    - Weekend/holiday market closures
@@ -340,8 +338,7 @@ out["test_df"].info()
 #    - Low liquidity periods
 #
 # 5. **Intentional Design**
-#    - Challenge complexity enhancement
-#    - Realistic market simulation
+#    
 
 # %%
 run_pipeline_node(
@@ -359,7 +356,7 @@ run_pipeline_node(
 # 3. Slight positive bias may indicate:
 #    - General market upward trend
 #    - Risk premium effects
-#    - Survivorship bias in the dataset
+#    - Survivorship bias in the dataset 
 # %%
 md(
     f"Class imbalance: {out['train_df']['RET'].value_counts(normalize=True)[0] * 100:.2f}%"
@@ -397,15 +394,13 @@ out_corr["correlation_matrix_plot"]
 #
 
 # %% [markdown]
-# ## Advanced Feature Engineering
+# ## Feature Engineering
 #
-# * Extended variable set from competition organizers
-# * Custom feature development
+# * Extending variable set from competition organizers
+# * Feature development based on technical analysisindicators
 # * Statistical feature calculation
 
 # %%
-
-
 import warnings
 
 with warnings.catch_warnings():
@@ -490,9 +485,9 @@ out4 = run_pipeline_node(
 )
 
 # %% [markdown]
-# #### Technical Indicator Optimization
+# ### Technical Indicator Optimization
 #
-# ### Indicator Selection Criteria:
+# #### Indicator Selection Criteria:
 # 1. **Relevance**
 #    - Remove indicators with minimal predictive value
 #    - Focus on non-redundant signals
@@ -517,9 +512,9 @@ out5 = run_pipeline_node(
 
 
 # %% [markdown]
-# #### Data Quality Enhancement
+# ### Data Quality Enhancement
 #
-# ### Infinity Value Management
+# #### Infinity Value Management
 # * Critical for model stability
 # * Particularly important for neural network training
 # * Prevents numerical computation issues
@@ -537,9 +532,9 @@ out6 = run_pipeline_node(
 
 
 # %% [markdown]
-# #### Final Data Cleaning
+# ### Final Data Cleaning
 #
-# ### Quality Assurance Steps:
+# #### Quality Assurance Steps:
 # 1. **Duplicate Resolution**
 #    - Remove redundant columns
 #    - Ensure data uniqueness
