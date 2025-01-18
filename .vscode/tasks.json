@@ -3,7 +3,7 @@
       {
         "label": "JupyText Sync",
         "type": "shell",
-        "command": "jupytext --sync ${file} notebooks/*",
+        "command": "jupytext --sync ${file}",
         "group": {
           "kind": "build",
           "isDefault": true

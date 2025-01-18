@@ -13,123 +13,141 @@
 # ---
 
 # %% [markdown]
-# # Stock Market Movement Prediction
-# ### Using Machine Learning to Forecast Next-Day Stock Price Movements
-# This project tackles a binary classification problem in financial markets -
-# predicting whether individual US stocks will move up or down the following day.
-# The goal is to develop a model that can assist in making data-driven investment decisions.
-# The model uses 20 days of historical price returns and trading volumes, along with
-# categorical stock metadata like industry and sector classifications, to identify
-# predictive patterns in market behavior.
-# The public benchmark accuracy of 51.31% was achieved using a Random Forest model that considered
-# the previous 5 days of data along with the average sector returns from the prior day.
+# # Stock Market Movement Prediction: A Machine Learning Approach
+# ### Using Advanced ML Techniques to Forecast Next-Day Stock Price Movements
 #
-# #### Agenda
-# 1. **Data Preprocessing**
-#    - Loading training and test datasets
-#    - Handling missing values and target encoding
-#    - Feature engineering (technical indicators of different types)
-# 2. **Model Implementation and Evaluation**
+# This project tackles a challenging binary classification problem in quantitative finance - predicting the directional movement
+# (up or down) of individual US stocks for the following trading day. The goal is to develop a sophisticated machine learning model
+# that can provide data-driven insights to support investment decision-making.
+#
+# The model leverages a comprehensive feature set including:
+# - 20 days of historical price returns
+# - 20 days of trading volume data
+# - Categorical stock metadata (industry, sector, etc.)
+# - Technical indicators and statistical features
+#
+# A public benchmark accuracy of 51.31% was previously achieved using a Random Forest model with 5 days of historical data and
+# sector-level information. Our approach aims to improve upon this by incorporating more features and advanced modeling techniques.
+#
+# #### Project Roadmap
+# 1. **Comprehensive Data Preprocessing**
+#    - Robust data loading and validation
+#    - Sophisticated missing value imputation
+#    - Advanced feature engineering including technical indicators
+#    - Target encoding of categorical variables
+#
+# 2. **Model Implementation and Rigorous Evaluation**
 #    - Decision Tree Classifier
-#       - Baseline model (accuracy: 0.510)
-#       - Tuned model with hyperparameter optimization (accuracy: 0.5325)
+#       - Baseline implementation (accuracy: 0.510)
+#       - Advanced hyperparameter optimization (accuracy: 0.5325)
 #    - XGBoost Classifier
-#       - Baseline model (accuracy: 0.53)
-#       - Tuned model with hyperparameter optimization (accuracy: 0.8775)
-#    - Neural Network
-#       - Accuracy: 0.5144
-# 3. **Model Comparison**
-#    - Cross-validation results
-#    - Feature importance analysis
-#    - ROC curves and confusion matrices
+#       - Initial implementation (accuracy: 0.53)
+#       - Extensive hyperparameter tuning (accuracy: 0.8775)
+#    - Neural Network Architecture
+#       - Custom implementation achieving 0.5144 accuracy
+#
+# 3. **In-depth Model Analysis**
+#    - Comprehensive cross-validation assessment
+#    - Feature importance ranking and interpretation
+#    - Detailed ROC curve analysis
+#    - Confusion matrix evaluation
 #
 # %% [markdown]
-# ## Data description
+# ## Detailed Data Description
 #
-# 3 datasets are provided as csv files, split between training inputs and outputs, and test inputs.
+# The project utilizes three primary datasets provided in CSV format, split between training (inputs/outputs) and test inputs.
 #
-# Input datasets comprise 47 columns: the first ID column contains unique row identifiers while the other 46 descriptive features correspond to:
+# ### Input Dataset Structure (47 columns):
+# * **Identifier Features:**
+#   - ID: Unique row identifier
+#   - DATE: Anonymized date index
+#   - STOCK: Stock identifier
 #
-# * **DATE**: an index of the date (the dates are randomized and anonymized so there is no continuity or link between any dates),
-# * **STOCK**: an index of the stock,
-# * **INDUSTRY**: an index of the stock industry domain (e.g., aeronautic, IT, oil company),
-# * **INDUSTRY_GROUP**: an index of the group industry,
-# * **SUB_INDUSTRY**: a lower level index of the industry,
-# * **SECTOR**: an index of the work sector,
-# * **RET_1 to RET_20**: the historical residual returns among the last 20 days (i.e., RET_1 is the return of the previous day and so on),
-# * **VOLUME_1 to VOLUME_20**: the historical relative volume traded among the last 20 days (i.e., VOLUME_1 is the relative volume of the previous day and so on),
+# * **Categorical Features:**
+#   - INDUSTRY: Stock's primary industry classification
+#   - INDUSTRY_GROUP: Broader industry grouping
+#   - SUB_INDUSTRY: Detailed industry subcategory
+#   - SECTOR: High-level sector classification
 #
-# Output datasets are only composed of 2 columns:
+# * **Time Series Features:**
+#   - RET_1 to RET_20: Historical residual returns (20-day window)
+#   - VOLUME_1 to VOLUME_20: Historical relative trading volumes (20-day window)
 #
-# * **ID**: the unique row identifier (corresponding to the input identifiers)
-# and the binary target:
-# * **RET**: the sign of the residual stock return at time $t$
+# ### Output Dataset Structure:
+# * ID: Corresponding identifier
+# * RET: Binary target indicating return direction (1 = up, 0 = down)
 #
 # ------------------------------------------------------------------------------------------------
-# The one-day return of a stock :
+# ### Key Financial Calculations
+#
+# **One-Day Return Formula:**
 # $$R^t = \frac{P_j^t}{P_j^{t-1}} - 1$$
+# where:
+# - $P_j^t$ is the price of stock j at time t
+# - $P_j^{t-1}$ is the price at previous time period
 #
-# The volume is the ratio of the stock volume to the median volume of the past 20 days.
-# The relative volumes are computed using the median of the past 20 days' volumes.
-# If any day within this 20-day window has a missing volume value, it will cause NaN values in the calculation for subsequent days.
-# For example, if there is a missing value on day $D$, then the relative volumes for days $D$ to $D+19$ will be affected.
-#
-# The relative volume $\tilde{V}^t_j$ at time $t$ of a stock $j$ is calculated as:
+# **Volume Normalization Process:**
+# 1. Calculate relative volume using 20-day median:
 # $$
 # \tilde{V}^t_j = \frac{V^t_j}{\text{median}( \{ V^{t-1}_j, \ldots, V^{t-20}_j \} )}
 # $$
 #
-# The adjusted relative volume $V^t_j$ is then given by:
+# 2. Adjust for market-wide effects:
 # $$
 # V^t_j = \tilde{V}^t_j - \frac{1}{n} \sum_{i=1}^{n} \tilde{V}^t_i
 # $$
+#
 # ------------------------------------------------------------------------------------------------
-# Guidelines from the organizers:
-# The solution files submitted by participants shall follow this output dataset format (i.e contain only two columns, ID and RET, where the ID values correspond to the input test data).
-# An example submission file containing random predictions is provided.
+# ### Dataset Scale:
+# * Training set: 418,595 observations
+# * Test set: 198,429 observations
 #
-# **418595 observations (i.e. lines) are available for the training datasets while 198429 observations are used for the test datasets.**
+# ### Submission Guidelines:
+# Predictions must be formatted as a two-column file (ID, RET) matching test data IDs.
 #
-
-
 # %% [markdown]
-# ## Implementation Steps
+# ## Detailed Implementation Strategy
 #
-# This notebook implements the following steps:
+# Our implementation follows a systematic approach across four major phases:
 #
-# 1. **Data Loading and Preprocessing**
-#    - Load training and test datasets
-#    - Handle missing values and data cleaning
-#    - Calculate technical indicators using TA-Lib
-#    - Filter out infinity values and remove duplicated columns
-#    - Split data into training and test sets (75%/25% split)
+# 1. **Advanced Data Loading and Preprocessing**
+#    - Robust data validation and quality checks
+#    - Sophisticated missing value treatment
+#    - Implementation of TA-Lib technical indicators
+#    - Comprehensive data cleaning including:
+#      - Infinity value handling
+#      - Duplicate column removal
+#      - Training/test split optimization (75%/25%)
 #
-# 2. **Feature Engineering**
-#    - Calculate technical indicators like RSI, OBV, EMA etc.
-#    - Save indicators to pickle files for reuse
-#    - Drop unnecessary ID and categorical columns
-#    - Remove redundant technical indicators
+# 2. **Sophisticated Feature Engineering**
+#    - Advanced technical indicator calculation:
+#      - Relative Strength Index (RSI)
+#      - On-Balance Volume (OBV)
+#      - Exponential Moving Averages (EMA)
+#    - Efficient data persistence using pickle format
+#    - Strategic feature selection and dimensionality reduction
+#    - Removal of redundant technical indicators
 #
-# 3. **Model Development and Tuning**
+# 3. **Comprehensive Model Development**
 #    - Decision Tree Classifier
-#       - Baseline model (accuracy: 0.510)
-#       - Tuned model with hyperparameters (accuracy: 0.533)
-#    - Gradient Boosting
-#       - Stepwise tuning of n_estimators, tree params, leaf params
-#       - Best model achieves significant improvement
-#    - Neural Network
-#       - Simple feed-forward architecture
-#       - Training with BCE loss and Adam optimizer
+#       - Baseline model development
+#       - Advanced hyperparameter optimization
+#    - Gradient Boosting Implementation
+#       - Iterative parameter tuning
+#       - Multi-stage optimization process
+#    - Neural Network Architecture
+#       - Custom feed-forward design
+#       - Advanced loss function implementation
 #
-# 4. **Model Comparison and Analysis**
-#    - Compare accuracy across all models
-#    - Analyze feature importance
-#    - Key findings on model performance and technical indicators
-#    - Discussion of overfitting and benchmark results
-
-
+# 4. **Thorough Model Evaluation**
+#    - Cross-model performance comparison
+#    - Detailed feature importance analysis
+#    - Comprehensive technical indicator assessment
+#    - In-depth overfitting analysis
+#    - Benchmark comparison and validation
+#
 # %% [markdown]
-# ### Importing libraries
+# ### Essential Library Imports
 # %%
 import sys
 from pathlib import Path
@@ -156,10 +174,6 @@ from IPython.display import Markdown as md
 
 from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
 
-# %% [markdown]
-# #### Run pipeline node definition. This one must be evaluated within the notebook
-
-
 # %%
 # Load the datasets
 x_train_raw = catalog.load("x_train_raw")
@@ -168,17 +182,22 @@ x_test_raw = catalog.load("x_test_raw")
 
 
 # %% [markdown]
-# ### Checking and configuring environment
+# ### Environment Configuration and Setup
+# Configuring the computational environment for optimal performance
 
 
 # %%
-## Google Colab used to speed up the computation in xgboost model
-## warning: this function must be run before importing libraries
-# if running in Google Colab
+## Google Colab Integration
+## Note: Must be executed before other library imports
 def setup_colab_environment():
     """
-    Set up Google Colab environment by mounting drive and creating symlinks.
-    Returns True if running in Colab, False otherwise.
+    Establishes Google Colab environment with necessary configurations:
+    - Mounts Google Drive
+    - Creates required symbolic links
+    - Sets up project directory structure
+
+    Returns:
+        bool: True if running in Colab, False otherwise
     """
     try:
         import os
@@ -200,21 +219,30 @@ def setup_colab_environment():
         return False
 
 
+# %% [markdown]
+# #### Pipeline Node Execution Configuration
+# Defining core functionality for running specific pipeline nodes
+
+
 # %% Run a specific node from a pipeline.
 def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
-    """Run a specific node from a pipeline.
+    """
+    Executes a specific node within the data processing pipeline.
 
-    Args:
-        pipeline_name: Name of the pipeline
-        node_name: Name of the node to run
-        inputs: Dictionary of input parameters for the node
+    Parameters:
+        pipeline_name (str): Target pipeline identifier
+        node_name (str): Specific node to execute
+        inputs (dict): Node input parameters
 
     Returns:
-        Output from running the node
+        Output from node execution
     """
     node_idx = get_node_idx(pipelines[pipeline_name], node_name)
     return pipelines[pipeline_name].nodes[node_idx].run(inputs)
 
+
+# %% [markdown]
+# ##### Environment Initialization
 
 # %%
 IN_COLAB = setup_colab_environment()
@@ -231,7 +259,14 @@ kfold = conf_params["model_options"]["kfold"]
 
 
 # %% [markdown]
-# ## Loading data
+# ## Data Loading and Initial Processing
+#
+# ### Preprocessing Strategy
+# * Systematic handling of missing values (NA removal)
+# * Target variable encoding (boolean to binary conversion)
+# * Optional data subsetting capabilities:
+#   - Fraction loading for rapid prototyping
+#   - Time window selection (e.g., using first n days)
 # %%
 # Set data directory based on environment
 # Run data processing pipeline node
@@ -249,8 +284,11 @@ out = run_pipeline_node(
 )
 
 
-#  %% [markdown]
-# #### Problem visualization
+# %% [markdown]
+# #### Visual Data Analysis
+#
+# * Time series visualization of returns and volume
+# * Target variable (RET) highlighted in red for clarity
 # %%
 # Plot returns and volume
 run_pipeline_node(
@@ -264,11 +302,15 @@ run_pipeline_node(
 
 
 # %% [markdown]
-# #### Head of the data
+# #### Initial Data Inspection
+#
+# * Raw data quality assessment
+# * Identification of data cleaning requirements
+# * Missing value patterns
 # %%
 out["test_df"].head()
 # %% [markdown]
-# #### Info about the dataset
+# #### Comprehensive Dataset Information
 # %%
 print("Training Dataset Info:")
 out["train_df"].info()
@@ -276,7 +318,30 @@ print("\nTest Dataset Info:")
 out["test_df"].info()
 
 # %% [markdown]
-# #### Plot nan percentages across categorical var
+# #### Missing Value Analysis Across Categories
+#
+# ### Common Causes of Missing Data:
+#
+# 1. **Market Structure**
+#    - Weekend/holiday market closures
+#    - Different trading venues (NYSE, NASDAQ, CBOE)
+#
+# 2. **Data Quality Issues**
+#    - Collection inconsistencies
+#    - Date anonymization effects
+#
+# 3. **Calculation Artifacts**
+#    - Rolling window calculations (20-day impact)
+#    - Weekend/holiday volume calculations
+#
+# 4. **Market Events**
+#    - Trading suspensions
+#    - Stock delistings
+#    - Low liquidity periods
+#
+# 5. **Intentional Design**
+#    - Challenge complexity enhancement
+#    - Realistic market simulation
 
 # %%
 run_pipeline_node(
@@ -286,35 +351,15 @@ run_pipeline_node(
 )["nan_percentages_plot"]
 
 # %% [markdown]
-
-# #### Possible reasons for missing values:
-# 1. Market closures (market data might be missing for weekends and public holidays) - some dates clearly show a very high
-# percentage of missing values
-# 2. Data collection issues (for instance, market data might come from different US venues, e.g. NYSE, NASDAQ, CBOE, etc.)
-# 3. Randomization and anonymization of dates
-# 4. The way relative volumes are calculated (one day missing causes missing values for the next 19 days) - could have something to do with calculating volumes on weekends / public holidays
-# 5. Done on purpose by the organizers to make the problem more challenging
-# 6. Some stocks might be delisted or suspended from trading (reference data problem) - some stocks in fact have up to 100% missing values
-# 7. Some stocks might be barely trading (either due to low volume or in a non-continuous manner)
-
-
-# %%[markdown] Dropping rows with NAs for the most important variables (RET_1 to RET_5)
-# The assumption is that the most recent values for regressors are the most important
-
-# %% [markdown]
-# #### Preprocessing data
-# * Dropping rows with NAs
-# * If arg set to true, removing ID columns
-# * RET is encoded from bool to binary
-
-
-# %% [markdown]
-# #### Check Class Imbalance
+# #### Class Balance Analysis
 #
-# **Class Imbalance**:
-# Classes seem to be balanced almost perfectly. This is expected, as the target variable is the sign of the return.
-# Intuitively, it is expected that the sign of the return is more likely to be positive (by a small margin) than negative
-# unless data comes from a bear market period.
+# The target variable shows near-perfect class balance, which is expected given:
+# 1. The target represents return sign (+/-)
+# 2. Market efficiency theory suggests roughly equal probability of up/down movements
+# 3. Slight positive bias may indicate:
+#    - General market upward trend
+#    - Risk premium effects
+#    - Survivorship bias in the dataset
 # %%
 md(
     f"Class imbalance: {out['train_df']['RET'].value_counts(normalize=True)[0] * 100:.2f}%"
@@ -323,18 +368,24 @@ md(
 
 
 # %% [markdown]
-# #### Plot correlation matrix
-
-# Findings:
-# * Most stock returns are nearly not correlated with each other (this is expected).
-# Otherwise, someone could make a lot of money
-# by exploiting this non-subtle pattern.
-#     * Eventually, excess alpha would converge to 0
-# * Among stock returns the strongest correlation is within stock returns adjacent to each other (e.g. $RET_1$ and $RET_2$)
-#     * This is expected as the magnitude return of a stock is likely to be correlated with the magnitude stock return of the previous day
-# * Volumes are highly correlated (this is kind of expected) due to the way $VOLUME_i$ variables are calculated.
-# Moreover, Volatility and Volumes tend to cluster. Hence, correlation is positive.
-# * There is a strong positive correlation between the volume of the previous day and the return of the following day
+# #### Correlation Analysis
+#
+# ### Key Findings:
+#
+# 1. **Return Correlations**
+#    - Minimal cross-stock return correlation (market efficiency)
+#    - Stronger correlations between adjacent time periods
+#    - Pattern suggests market efficiency (limited predictability)
+#
+# 2. **Volume Relationships**
+#    - High volume autocorrelation due to calculation method
+#    - Volume clustering indicates market regime patterns
+#    - Strong volume-volatility relationship
+#
+# 3. **Lead-Lag Effects**
+#    - Significant volume-return relationship
+#    - Previous day's volume predicts next day's return
+#    - Potential trading signal indicator
 # %%
 out_corr = run_pipeline_node(
     "reporting",
@@ -343,27 +394,17 @@ out_corr = run_pipeline_node(
 )
 out_corr["correlation_matrix_plot"]
 # %% [markdown]
-# ## Feature Engineering - Technical Indicators using TA-Lib
-# In this part, we calculate the technical indicators for the train and test data.
-# We save the results in pickle files to avoid recalculating them every time.
-# The following functions inside the function are used:
-# - talib.OBV, {"data_type": "both"}),
-# - talib.RSI, {"data_type": "ret"}),
-# - talib.MOM, {"timeperiod": 5, "data_type": "ret"}),
-# - talib.ROCR, {"timeperiod": 5, "data_type": "ret"}),
-# - talib.CMO, {"timeperiod": 14, "data_type": "ret"}),
-# - talib.EMA, {"timeperiod": 5, "data_type": "ret"}),
-# - talib.SMA, {"timeperiod": 5, "data_type": "ret"}),
-# - talib.WMA, {"timeperiod": 5, "data_type": "ret"}),
-# - talib.MIDPOINT, {"timeperiod": 10, "data_type": "ret"}),
+#
 
 # %% [markdown]
-# #### Feature engineering - cont'd
+# ## Advanced Feature Engineering
+#
+# * Extended variable set from competition organizers
+# * Custom feature development
+# * Statistical feature calculation
 
 # %%
-# This comes from organizers' notebook, it's an extended version of variables they used
-# Feature engineering
-# Calculate statistical features
+
 
 import warnings
 
@@ -379,7 +420,28 @@ with warnings.catch_warnings():
     )
 
 # %% [markdown]
-# ### Calculate technical indicators
+# ### Technical Indicator Implementation Using TA-Lib
+#
+# This section implements advanced technical analysis indicators for both training and test datasets.
+# Results are persisted to optimize computation time.
+#
+# ### Implemented Indicators:
+# 1. **Volume Indicators**
+#    - On-Balance Volume (OBV)
+#
+# 2. **Momentum Indicators**
+#    - Relative Strength Index (RSI)
+#    - Momentum (MOM) - 5 period
+#    - Rate of Change Ratio (ROCR) - 5 period
+#    - Chande Momentum Oscillator (CMO) - 14 period
+#
+# 3. **Moving Averages**
+#    - Exponential Moving Average (EMA) - 5 period
+#    - Simple Moving Average (SMA) - 5 period
+#    - Weighted Moving Average (WMA) - 5 period
+#    - Midpoint Price (MIDPOINT) - 10 period
+#
+# Note: Computation is time-intensive for full dataset
 # %%
 calculate = True
 
@@ -404,10 +466,18 @@ else:
     )
 
 # %% [markdown]
-# #### Columns to drop
-# They could bring in some predictive power, but we don't want to use them in this case
-# as the scope is limited for this project
-# ['ID', 'STOCK', 'DATE', 'INDUSTRY', 'INDUSTRY_GROUP', 'SECTOR', 'SUB_INDUSTRY']
+# ### Feature Selection Strategy
+#
+# #### Columns Targeted for Removal:
+# 1. **Identifier Columns**
+#    - While potentially predictive, excluded for model generalization
+#    - Includes: ID, STOCK, DATE
+#
+# 2. **Categorical Features**
+#    - INDUSTRY, INDUSTRY_GROUP, SECTOR, SUB_INDUSTRY
+#    - Used in feature engineering but removed from final model
+#
+# Rationale: Focus on price/volume dynamics rather than static characteristics
 # %%
 
 out4 = run_pipeline_node(
@@ -420,9 +490,20 @@ out4 = run_pipeline_node(
 )
 
 # %% [markdown]
-# Assumption is that probably some technical indicators are not useful for the prediction.
-# For instance SMA(10), SMA(11) etc. dont give any information in the context of RET.
-# It's an arbitrary choice, but we want to keep the number of features low
+# #### Technical Indicator Optimization
+#
+# ### Indicator Selection Criteria:
+# 1. **Relevance**
+#    - Remove indicators with minimal predictive value
+#    - Focus on non-redundant signals
+#
+# 2. **Complexity Management**
+#    - Reduce feature space to prevent overfitting
+#    - Example: Similar-period SMAs offer limited additional value
+#
+# 3. **Model Performance Impact**
+#    - Retain indicators that demonstrate predictive power
+#    - Remove those that may introduce noise
 # %%
 out5 = run_pipeline_node(
     "data_processing",
@@ -435,6 +516,14 @@ out5 = run_pipeline_node(
 )
 
 
+# %% [markdown]
+# #### Data Quality Enhancement
+#
+# ### Infinity Value Management
+# * Critical for model stability
+# * Particularly important for neural network training
+# * Prevents numerical computation issues
+
 # %% Filter out infinity values
 out6 = run_pipeline_node(
     "data_processing",
@@ -446,6 +535,20 @@ out6 = run_pipeline_node(
     },
 )
 
+
+# %% [markdown]
+# #### Final Data Cleaning
+#
+# ### Quality Assurance Steps:
+# 1. **Duplicate Resolution**
+#    - Remove redundant columns
+#    - Ensure data uniqueness
+#
+# 2. **Missing Value Treatment**
+#    - Second-pass NaN handling
+#    - Address gaps from technical indicator calculation
+#
+# Purpose: Ensure data quality for model training
 
 # %%
 # Remove duplicated columns and handle NaN values

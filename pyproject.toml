@@ -88,3 +88,7 @@ ignore = ["E501"]  # Ruff format takes care of line-too-long
 
 [tool.kedro_telemetry]
 project_id = "dc2a4c70761246f3ab9af4d7c986db5c"
+
+[tool.jupytext.formats]
+"notebooks/" = "ipynb"
+"src/" = "py:percent"
