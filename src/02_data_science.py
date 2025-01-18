@@ -193,21 +193,19 @@ grid_dt = run_pipeline_node(
 # %%
 log.info("Fitting with train set")
 model_fit(
-    grid_dt["best_model"],
+    grid_dt["model"],
     X_train_selected,
     y_train,
     X_train_selected.columns,
-    printFeatureImportance=True,
 )
 
 # %%
 log.info("Fitting with test set")
 model_fit(
-    tuned_dt["best_model"],
+    tuned_dt["model"],
     X_test_selected,
     y_test,
     important_features,
-    printFeatureImportance=False,
     roc=True,
 )
 
@@ -215,7 +213,7 @@ model_fit(
 # #### Prediction on the test dataframe
 # %%
 
-prediction = grid_dt["best_model"].predict(X_test_selected)
+prediction = grid_dt["model"].predict(X_test_selected)
 log.info(f"{prediction}")
 
 # %% [markdown]
@@ -241,12 +239,11 @@ gbm_classifier = run_pipeline_node(
 )["base_gb"]
 # %%
 model_fit(
-    gbm_classifier.model,
+    gbm_classifier["model"].model,
     X_train_selected,
     y_train,
     important_features,
     roc=True,
-    printFeatureImportance=True,
 )
 
 # %% [markdown]
@@ -271,9 +268,10 @@ tuned_gb = run_pipeline_node(
     "data_science",
     "tune_gradient_boosting_node",
     {
-        "base_gb": gbm_classifier,
+        "base_gb": gbm_classifier["model"],
         "X_train_selected": X_train_selected,
         "y_train": y_train,
+        "parameters": conf_params,
     },
 )["tuned_gb"]
 
@@ -301,7 +299,6 @@ model_fit(
     y_train,
     X_train_selected.columns,
     roc=True,
-    printFeatureImportance=True,
 )
 
 # %% [markdown]
@@ -348,7 +345,7 @@ nn_model = run_pipeline_node(
 X_test_tensor = torch.FloatTensor(X_test.values)
 y_test_tensor = torch.FloatTensor(y_test.values).reshape(-1, 1)
 with torch.no_grad():
-    outputs = nn_model(X_test_tensor)
+    outputs = nn_model["model"](X_test_tensor)
     # Convert probabilities to binary predictions using 0.5 threshold
     y_predict = (outputs >= 0.5).squeeze().numpy()
 
@@ -368,7 +365,6 @@ model_results = run_pipeline_node(
         "nn_model": nn_model,
         "X_test": X_test,
         "y_test": y_test,
-        "X_test_selected": X_test_selected,
     },
 )["model_results"]
 

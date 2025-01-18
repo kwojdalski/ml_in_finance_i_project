@@ -336,62 +336,6 @@ def plot_correlation_matrix(df):
     return fig
 
 
-def simulate_strategy(y_test, y_predict, n_simulations=1000, n_days=100):
-    """
-    Simulate trading strategy performance based on model predictions.
-
-    Args:
-        y_test: True test labels
-        y_predict: Model predictions
-        n_simulations: Number of simulations to run
-        n_days: Number of days to simulate
-
-    Returns:
-        plotly.graph_objects.Figure: A plotly figure showing the simulation results
-    """
-    # Get accuracy
-    nn_accuracy = accuracy_score(y_test, y_predict)
-
-    # Initialize strategy results
-    nn_strategy = np.zeros(n_days)
-
-    # Simulate
-    for i in range(n_simulations):
-        tmp_nn_strategy = []
-        for d in range(n_days):
-            tmp_nn_strategy.append(+1 if nn_accuracy > np.random.random() else -1)
-        # Cumulative sum
-        nn_strategy += np.cumsum(tmp_nn_strategy)
-
-    # Compute average performance
-    nn_strategy /= n_simulations
-
-    # Create figure
-    fig = go.Figure()
-
-    # Add line trace
-    fig.add_trace(
-        go.Scatter(
-            x=list(range(n_days)),
-            y=nn_strategy,
-            name=f"NN, acc = {nn_accuracy:1.4f}",
-            line=dict(color="firebrick", width=2),
-        )
-    )
-
-    # Update layout
-    fig.update_layout(
-        title="Avg Performance of Long-Short Strategy Simulation",
-        xaxis_title="Days",
-        yaxis_title="PnL",
-        height=600,
-        width=800,
-        showlegend=True,
-    )
-
-    return fig
-
-
 def calculate_model_metrics(
     y_true: np.ndarray, y_pred: np.ndarray, y_proba: np.ndarray
 ) -> Dict[str, float]:
@@ -493,12 +437,11 @@ def calculate_benchmark_metrics(
 
 def aggregate_model_results(
     base_dt: Optional[Any] = None,
-    grid_dt: Optional[Dict[str, Any]] = None,
-    tuned_gb: Optional[Dict[str, Any]] = None,
+    grid_dt: Optional[dict] = None,
+    tuned_gb: Optional[dict] = None,
     nn_model: Optional[Any] = None,
     X_test: Optional[np.ndarray] = None,
     y_test: Optional[np.ndarray] = None,
-    X_test_selected: Optional[np.ndarray] = None,
 ) -> tuple[pd.DataFrame, dict]:
     """Aggregate comprehensive model results and metrics.
 
@@ -517,21 +460,25 @@ def aggregate_model_results(
     all_metrics = {}
 
     # Base Decision Tree
-    if base_dt is not None and X_test is not None:
-        y_pred, y_proba = get_model_predictions(base_dt, X_test)
+    if base_dt is not None:
+        y_pred, y_proba = get_model_predictions(
+            base_dt["model"], X_test[base_dt["features"]]
+        )
         base_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
         all_metrics["base_decision_tree"] = calculate_benchmark_metrics(base_metrics)
 
     # Tuned Decision Tree
-    if grid_dt is not None and X_test is not None:
-        y_pred, y_proba = get_model_predictions(grid_dt["best_model"], X_test_selected)
+    if grid_dt is not None:
+        y_pred, y_proba = get_model_predictions(
+            grid_dt["model"], X_test[grid_dt["features"]]
+        )
         tuned_dt_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
         all_metrics["tuned_decision_tree"] = calculate_benchmark_metrics(
             tuned_dt_metrics
         )
 
     # Gradient Boosting stages
-    if tuned_gb is not None and X_test is not None:
+    if tuned_gb is not None:
         gb_stages = {
             "gb_n_estimators": tuned_gb["n_estimators_result"],
             "gb_tree_params": tuned_gb["tree_params_result"],
@@ -540,13 +487,15 @@ def aggregate_model_results(
         }
 
         for stage_name, model in gb_stages.items():
-            y_pred, y_proba = get_model_predictions(model, X_test_selected)
+            y_pred, y_proba = get_model_predictions(model, X_test[tuned_gb["features"]])
             stage_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
             all_metrics[stage_name] = calculate_benchmark_metrics(stage_metrics)
 
     # Neural Network
-    if nn_model is not None and X_test is not None:
-        y_pred, y_proba = get_model_predictions(nn_model, X_test, is_torch_model=True)
+    if nn_model is not None:
+        y_pred, y_proba = get_model_predictions(
+            nn_model["model"], X_test[nn_model["features"]], is_torch_model=True
+        )
         nn_metrics = calculate_model_metrics(y_test, y_pred, y_proba)
         all_metrics["neural_network"] = calculate_benchmark_metrics(nn_metrics)
 
@@ -554,9 +503,7 @@ def aggregate_model_results(
     all_metrics["metadata"] = {
         "n_test_samples": len(y_test),
         "n_features": X_test.shape[1],
-        "n_features_selected": X_test_selected.shape[1]
-        if X_test_selected is not None
-        else None,
+        "n_features_selected": X_test[tuned_gb["features"]].shape[1],
         "class_distribution.positive": float(np.mean(y_test)),
         "class_distribution.negative": float(1 - np.mean(y_test)),
     }

@@ -8,7 +8,6 @@ from .nodes import (
     plot_na,
     plot_nan_percentages,
     plot_ret_and_vol,
-    simulate_strategy,
 )
 
 
@@ -71,18 +70,10 @@ def create_pipeline(**kwargs) -> Pipeline:
                     "nn_model",
                     "X_test",
                     "y_test",
-                    "X_test_selected",
                 ],
                 outputs=["model_results", "all_metrics"],
                 name="aggregate_model_results_node",
                 tags=["reporting", "metrics"],
-            ),
-            node(
-                func=simulate_strategy,
-                inputs=["y_test", "y_predict", "params:n_simulations", "params:n_days"],
-                outputs="strategy_simulation_plot",
-                name="simulate_strategy_node",
-                tags=["reporting", "visualization"],
             ),
         ]
     )

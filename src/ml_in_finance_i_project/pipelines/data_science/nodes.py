@@ -1,23 +1,25 @@
 import logging as log
-import warnings
+import sys
 from itertools import compress
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 from sklearn import tree
-from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.impute import KNNImputer
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch import nn
 
+path = Path(__file__).parent.parent.parent.parent.parent
+sys.path.append(str(path))
+
 from src.ml_in_finance_i_project.GBClassifierGridSearch import (
     HistGBClassifierGridSearch,
 )
 from src.ml_in_finance_i_project.nn import Net
-from src.ml_in_finance_i_project.pipelines.reporting.nodes import feature_importance
 from src.ml_in_finance_i_project.utils import compute_roc, evaluation
 
 
@@ -167,7 +169,6 @@ def tune_decision_tree(
         tuned_model,
         X_train,
         y_train,
-        printFeatureImportance=True,
     )
 
     return {
@@ -206,7 +207,10 @@ def remove_nan_rows(
 
 
 def tune_gradient_boosting(
-    gbm_classifier, X_train_clean: pd.DataFrame, y_train_clean: pd.Series
+    gbm_classifier,
+    X_train_clean: pd.DataFrame,
+    y_train_clean: pd.Series,
+    parameters: dict,
 ) -> dict:
     """Tune gradient boosting hyperparameters sequentially.
 
@@ -223,22 +227,24 @@ def tune_gradient_boosting(
         - max_features_result: Results from tuning max features
     """
     # Tune number of estimators
-    n_estimators_result = gbm_classifier.tune_n_estimators(X_train_clean, y_train_clean)
+    n_estimators_result = gbm_classifier["model"].tune_n_estimators(
+        X_train_clean, y_train_clean
+    )
     features = [col for col in X_train_clean.columns if col != parameters["target"]]
     # Tune tree parameters using best n_estimators
-    tree_params_result = gbm_classifier.tune_tree_params(
+    tree_params_result = gbm_classifier["model"].tune_tree_params(
         X_train_clean, y_train_clean, {**n_estimators_result.best_params_}
     )
 
     # Tune leaf parameters using best n_estimators and tree params
-    leaf_params_result = gbm_classifier.tune_leaf_params(
+    leaf_params_result = gbm_classifier["model"].tune_leaf_params(
         X_train_clean,
         y_train_clean,
         {**n_estimators_result.best_params_, **tree_params_result.best_params_},
     )
 
     # Tune max features using all previous best parameters
-    max_features_result = gbm_classifier.tune_max_features(
+    max_features_result = gbm_classifier["model"].tune_max_features(
         X_train_clean,
         y_train_clean,
         {
@@ -280,7 +286,7 @@ def select_important_features(
     important_features = list(
         compress(
             features,
-            grid_dt["best_model"].feature_importances_ >= threshold,
+            grid_dt["model"].feature_importances_ >= threshold,
         )
     )
 
@@ -297,7 +303,6 @@ def model_fit(
     features: list[str] | None = None,
     performCV: bool = True,
     roc: bool = False,
-    printFeatureImportance: bool = False,
 ) -> None:
     """
     Fits a model, makes predictions, and evaluates performance using confusion matrix, accuracy score,
@@ -325,12 +330,3 @@ def model_fit(
         evaluation(model, X, Y, kfold)
     if roc:
         compute_roc(Y, predictions, plot=True)
-
-    # Print Feature Importance:
-    if printFeatureImportance:
-        if isinstance(model, HistGradientBoostingClassifier):
-            warnings.warn(
-                "Feature importance is only supported for GradientBoostingClassifier"
-            )
-        else:
-            feature_importance(model, X, 0.01)
