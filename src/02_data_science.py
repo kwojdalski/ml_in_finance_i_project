@@ -44,8 +44,8 @@ import sys
 import kedro.ipython
 import torch
 from sklearn.metrics import classification_report
-from utils import model_fit
 
+from src.ml_in_finance_i_project.pipelines.data_science.nodes import model_fit
 from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
 
 
@@ -69,8 +69,8 @@ def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
 
 # %% [markdown]
 # #### Kedro configuration loading
-# %%
 # load the configuration file from kedro and load into conf_params
+# %%
 conf_params = context.config_loader.get("parameters")
 target = conf_params["model_options"]["target"]
 kfold = conf_params["model_options"]["kfold"]
@@ -112,6 +112,7 @@ base_dt = run_pipeline_node(
     {
         "X_train": X_train,
         "y_train": y_train,
+        "parameters": conf_params,
     },
 )["base_dt"]
 
@@ -122,10 +123,11 @@ base_dt = run_pipeline_node(
 # cross-validation, ROC curve and feature importance analysis.
 
 # %%
-log.info(f"Accuracy on test set: {base_dt.score(X_test, y_test):.3f}")
+log.info(f"Accuracy on test set: {base_dt['model'].score(X_test, y_test):.3f}")
 
 # %% [markdown]
 # ### Tunning Decision tree model with Gridsearch
+
 # %%
 tuned_dt = run_pipeline_node(
     "data_science",

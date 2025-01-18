@@ -28,7 +28,7 @@ sys.path.append(str(path))
 from utils import CAT_COLS, ID_COLS
 
 
-def feature_importance(model, X_train: pd.DataFrame, threshold: float = 0.01):
+def plot_feature_importance(model, X_train: pd.DataFrame, threshold: float = 0.01):
     """
     Create a bar plot showing the importance of each feature in the model.
 
@@ -42,7 +42,7 @@ def feature_importance(model, X_train: pd.DataFrame, threshold: float = 0.01):
     # Create dataframe with feature importances
     features = X_train.drop(columns=["RET"], errors="ignore").columns.tolist()
     feature_importances = pd.DataFrame(
-        {"feature": features, "importance": model["best_model"].feature_importances_}
+        {"feature": features, "importance": model["model"].feature_importances_}
     )
 
     feature_importances = feature_importances.sort_values("importance", ascending=True)

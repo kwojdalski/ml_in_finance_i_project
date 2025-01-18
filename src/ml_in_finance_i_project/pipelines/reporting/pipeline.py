@@ -2,8 +2,8 @@ from kedro.pipeline import Pipeline, node, pipeline
 
 from .nodes import (
     aggregate_model_results,
-    feature_importance,
     plot_correlation_matrix,
+    plot_feature_importance,
     plot_model_accuracy,
     plot_na,
     plot_nan_percentages,
@@ -24,7 +24,7 @@ def create_pipeline(**kwargs) -> Pipeline:
                 tags=["reporting", "visualization"],
             ),
             node(
-                func=feature_importance,
+                func=plot_feature_importance,
                 inputs=[
                     "grid_dt",
                     "X_train",

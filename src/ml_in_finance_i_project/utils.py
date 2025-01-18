@@ -1,14 +1,11 @@
 import logging as log
-import warnings
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from plotnine import aes, coord_flip, geom_bar, geom_hline, ggplot, labs, theme
 from scipy.stats import kurtosis, skew
-from sklearn.ensemble import HistGradientBoostingClassifier
-from sklearn.metrics import accuracy_score, auc, confusion_matrix, roc_curve
+from sklearn.metrics import auc, roc_curve
 from sklearn.model_selection import cross_val_score
 
 kfold = 2
@@ -87,87 +84,6 @@ def compute_roc(
         plt.title("Receiver operating characteristic")
         plt.show()
     return fpr, tpr, auc_score
-
-
-# %%
-def feature_importance(model, features: list[str], threshold: float = 0.01):
-    """
-    Create a bar plot showing the importance of each feature in the model.
-
-    Args:
-        model: A fitted model object that has feature_importances_ attribute
-        features (list[str]): List of feature names used in the model
-
-    Returns:
-        plotnine.ggplot: A plotnine plot object containing the feature importance plot
-    """
-    # Create dataframe with feature importances
-    feature_importances = pd.DataFrame(
-        {"feature": features, "importance": model.feature_importances_}
-    )
-
-    # Sort by importance
-    feature_importances = feature_importances.sort_values("importance", ascending=True)
-
-    # Create plot
-    plot = (
-        ggplot(
-            feature_importances, aes(x="reorder(feature, importance)", y="importance")
-        )
-        + geom_bar(stat="identity", fill="steelblue")
-        + geom_hline(yintercept=threshold, linetype="dashed", color="red")
-        + coord_flip()
-        + labs(title="Feature Importance", x="Features", y="Importance")
-        + theme(figure_size=(13, 12))
-    )
-    return plot
-
-
-# %%
-def model_fit(
-    model,
-    X: pd.DataFrame,
-    Y: pd.Series,
-    features: list[str] | None = None,
-    performCV: bool = True,
-    roc: bool = False,
-    printFeatureImportance: bool = False,
-) -> None:
-    """
-    Fits a model, makes predictions, and evaluates performance using confusion matrix, accuracy score,
-    cross-validation, ROC curve and feature importance analysis.
-    """
-    # Fitting the model on the data_set
-    if features is not None:
-        X = X[features]
-
-    model.fit(X, Y)
-    # Predict training set:
-    predictions = model.predict(X)
-    # Create and print confusion matrix
-    cfm = confusion_matrix(Y, predictions)
-    log.info("\nModel Confusion matrix")
-    log.info(cfm)
-
-    # Print model report:
-    log.info("\nModel Report")
-    log.info("Accuracy : %.4g" % accuracy_score(Y.values, predictions))
-
-    # Perform cross-validation: evaluate using 10-fold cross validation
-    # kfold = StratifiedKFold(n_splits=10, shuffle=True)
-    if performCV:
-        evaluation(model, X, Y, kfold)
-    if roc:
-        compute_roc(Y, predictions, plot=True)
-
-    # Print Feature Importance:
-    if printFeatureImportance:
-        if isinstance(model, HistGradientBoostingClassifier):
-            warnings.warn(
-                "Feature importance is only supported for GradientBoostingClassifier"
-            )
-        else:
-            feature_importance(model, features)
 
 
 def load_data(

@@ -1,16 +1,24 @@
+import logging as log
+import warnings
 from itertools import compress
 
 import numpy as np
 import pandas as pd
 import torch
-from GBClassifierGridSearch import HistGBClassifierGridSearch
 from sklearn import tree
-from sklearn.model_selection import GridSearchCV, train_test_split
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.impute import KNNImputer
+from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 from torch import nn
-from utils import model_fit
 
-from ml_in_finance_i_project.nn import Net
+from src.ml_in_finance_i_project.GBClassifierGridSearch import (
+    HistGBClassifierGridSearch,
+)
+from src.ml_in_finance_i_project.nn import Net
+from src.ml_in_finance_i_project.pipelines.reporting.nodes import feature_importance
+from src.ml_in_finance_i_project.utils import compute_roc, evaluation
 
 
 def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
@@ -32,7 +40,7 @@ def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
 
 
 def train_decision_tree(
-    X_train: pd.DataFrame, y_train: pd.DataFrame
+    X_train: pd.DataFrame, y_train: pd.DataFrame, parameters: dict
 ) -> tree.DecisionTreeClassifier:
     """Train and tune decision tree model.
 
@@ -44,8 +52,10 @@ def train_decision_tree(
         Trained decision tree model
     """
     base_dt = tree.DecisionTreeClassifier()
-    model_fit(base_dt, X_train, y_train, performCV=False)
-    return base_dt
+    features = [col for col in X_train.columns if col != parameters["target"]]
+    x_train = X_train[features]
+    model_fit(base_dt, x_train, y_train, performCV=False)
+    return {"model": base_dt, "features": features}
 
 
 def train_gradient_boosting(
@@ -60,11 +70,13 @@ def train_gradient_boosting(
     Returns:
         Trained gradient boosting model
     """
+    # Keep original gradient boosting code
     gbm_classifier = HistGBClassifierGridSearch()
     features = [col for col in X_train.columns if col != parameters["target"]]
     x_train = X_train[features]
     gbm_classifier.run(x_train, y_train)
-    return gbm_classifier
+
+    return {"model": gbm_classifier, "features": features}
 
 
 def train_neural_network(
@@ -79,6 +91,7 @@ def train_neural_network(
     Returns:
         Trained neural network model
     """
+    # Keep original neural network code
     features = [col for col in X_train.columns if col != parameters["target"]]
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
@@ -87,6 +100,7 @@ def train_neural_network(
     criterion = nn.BCELoss()
     optimizer = torch.optim.Adam(nn_model.parameters())
 
+    # Keep original training loop
     X_train_tensor = torch.FloatTensor(X_train)
     y_train_tensor = torch.FloatTensor(y_train.values).reshape(-1, 1)
 
@@ -104,7 +118,7 @@ def train_neural_network(
             loss.backward()
             optimizer.step()
 
-    return nn_model
+    return {"model": nn_model, "features": features}
 
 
 def tune_decision_tree(
@@ -123,6 +137,7 @@ def tune_decision_tree(
         - best_params: Best hyperparameters found
         - cv_results: Cross validation results
     """
+    features = [col for col in X_train.columns if col != parameters["target"]]
     params = {"max_depth": np.arange(2, 7), "criterion": ["gini", "entropy"]}
     tree_estimator = tree.DecisionTreeClassifier()
 
@@ -156,14 +171,42 @@ def tune_decision_tree(
     )
 
     return {
-        "best_model": tuned_model,
+        "model": tuned_model,
         "best_params": best_params,
         "cv_results": cv_results,
+        "features": features,
     }
 
 
+def remove_nan_rows(
+    X_train: pd.DataFrame, X_test: pd.DataFrame, y_train: pd.Series, y_test: pd.Series
+) -> tuple:
+    """Remove rows containing NaN values from training data.
+
+    Args:
+        X_train: Training features
+        X_test: Test features
+        y_train: Training target
+        y_test: Test target
+
+    Returns:
+        Tuple containing cleaned X_train, X_test, y_train, y_test
+    """
+    nan_mask = X_train.isna().any(axis=1)
+    X_train_clean = X_train[~nan_mask]
+    y_train_clean = y_train[~nan_mask]
+    # Fill NaN values in test set using nearest neighbor imputation
+
+    imputer = KNNImputer(n_neighbors=5)
+    X_test_clean = pd.DataFrame(
+        imputer.fit_transform(X_test), columns=X_test.columns, index=X_test.index
+    )
+
+    return X_train_clean, X_test_clean, y_train_clean, y_test
+
+
 def tune_gradient_boosting(
-    gbm_classifier, X_train: pd.DataFrame, y_train: pd.Series
+    gbm_classifier, X_train_clean: pd.DataFrame, y_train_clean: pd.Series
 ) -> dict:
     """Tune gradient boosting hyperparameters sequentially.
 
@@ -180,24 +223,24 @@ def tune_gradient_boosting(
         - max_features_result: Results from tuning max features
     """
     # Tune number of estimators
-    n_estimators_result = gbm_classifier.tune_n_estimators(X_train, y_train)
-
+    n_estimators_result = gbm_classifier.tune_n_estimators(X_train_clean, y_train_clean)
+    features = [col for col in X_train_clean.columns if col != parameters["target"]]
     # Tune tree parameters using best n_estimators
     tree_params_result = gbm_classifier.tune_tree_params(
-        X_train, y_train, {**n_estimators_result.best_params_}
+        X_train_clean, y_train_clean, {**n_estimators_result.best_params_}
     )
 
     # Tune leaf parameters using best n_estimators and tree params
     leaf_params_result = gbm_classifier.tune_leaf_params(
-        X_train,
-        y_train,
+        X_train_clean,
+        y_train_clean,
         {**n_estimators_result.best_params_, **tree_params_result.best_params_},
     )
 
     # Tune max features using all previous best parameters
     max_features_result = gbm_classifier.tune_max_features(
-        X_train,
-        y_train,
+        X_train_clean,
+        y_train_clean,
         {
             **n_estimators_result.best_params_,
             **tree_params_result.best_params_,
@@ -210,6 +253,7 @@ def tune_gradient_boosting(
         "tree_params_result": tree_params_result,
         "leaf_params_result": leaf_params_result,
         "max_features_result": max_features_result,
+        "features": features,
     }
 
 
@@ -244,3 +288,49 @@ def select_important_features(
     X_test_selected = X_test.loc[:, important_features]
 
     return X_train_selected, X_test_selected, important_features
+
+
+def model_fit(
+    model,
+    X: pd.DataFrame,
+    Y: pd.Series,
+    features: list[str] | None = None,
+    performCV: bool = True,
+    roc: bool = False,
+    printFeatureImportance: bool = False,
+) -> None:
+    """
+    Fits a model, makes predictions, and evaluates performance using confusion matrix, accuracy score,
+    cross-validation, ROC curve and feature importance analysis.
+    """
+    # Fitting the model on the data_set
+    if features is not None:
+        X = X[features]
+
+    model.fit(X, Y)
+    # Predict training set:
+    predictions = model.predict(X)
+    # Create and print confusion matrix
+    cfm = confusion_matrix(Y, predictions)
+    log.info("\nModel Confusion matrix")
+    log.info(cfm)
+
+    # Print model report:
+    log.info("\nModel Report")
+    log.info("Accuracy : %.4g" % accuracy_score(Y.values, predictions))
+
+    # Perform cross-validation: evaluate using 10-fold cross validation
+    kfold = StratifiedKFold(n_splits=10, shuffle=True)
+    if performCV:
+        evaluation(model, X, Y, kfold)
+    if roc:
+        compute_roc(Y, predictions, plot=True)
+
+    # Print Feature Importance:
+    if printFeatureImportance:
+        if isinstance(model, HistGradientBoostingClassifier):
+            warnings.warn(
+                "Feature importance is only supported for GradientBoostingClassifier"
+            )
+        else:
+            feature_importance(model, X, 0.01)

@@ -23,7 +23,7 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=train_decision_tree,
-                inputs=["X_train", "y_train"],
+                inputs=["X_train", "y_train", "parameters"],
                 outputs="base_dt",
                 name="train_decision_tree_node",
                 tags=["model_training", "decision_tree"],
