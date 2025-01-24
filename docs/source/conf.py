@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 
-# ml_in_finance_i_project documentation build
+# qrt-stock-returns documentation build
 # configuration file, created by sphinx-quickstart.
 #
 # This file is execfile()d with the current directory set to its
@@ -20,11 +20,11 @@
 import re
 
 from kedro.framework.cli.utils import find_stylesheets
-from ml_in_finance_i_project import __version__ as release
+from qrt_stock_returns import __version__ as release
 
 # -- Project information -----------------------------------------------------
 
-project = "ml_in_finance_i_project"
+project = "qrt-stock-returns"
 author = "Kedro"
 
 # The short X.Y version.
@@ -120,7 +120,7 @@ html_show_copyright = False
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "ml_in_finance_i_projectdoc"
+htmlhelp_basename = "qrt-stock-returnsdoc"
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -148,8 +148,8 @@ latex_elements = {
 latex_documents = [
     (
         master_doc,
-        "ml_in_finance_i_project.tex",
-        "ml_in_finance_i_project Documentation",
+        "qrt-stock-returns.tex",
+        "qrt-stock-returns Documentation",
         "Kedro",
         "manual",
     )
@@ -162,8 +162,8 @@ latex_documents = [
 man_pages = [
     (
         master_doc,
-        "ml_in_finance_i_project",
-        "ml_in_finance_i_project Documentation",
+        "qrt-stock-returns",
+        "qrt-stock-returns Documentation",
         [author],
         1,
     )
@@ -177,11 +177,11 @@ man_pages = [
 texinfo_documents = [
     (
         master_doc,
-        "ml_in_finance_i_project",
-        "ml_in_finance_i_project Documentation",
+        "qrt-stock-returns",
+        "qrt-stock-returns Documentation",
         author,
-        "ml_in_finance_i_project",
-        "Project ml_in_finance_i_project codebase.",
+        "qrt-stock-returns",
+        "Project qrt-stock-returns codebase.",
         "Data-Science",
     )
 ]

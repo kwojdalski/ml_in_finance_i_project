@@ -5,8 +5,12 @@ import numpy as np
 import pandas as pd
 from kedro.config import OmegaConfigLoader
 from pyspark.sql import DataFrame as SparkDataFrame
-from sklearn.impute import KNNImputer
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.experimental import enable_iterative_imputer  # noqa
+from sklearn.feature_selection import mutual_info_regression
+from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.preprocessing import LabelEncoder
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 from ta_indicators import calculate_all_ta_indicators
 
 conf_loader = OmegaConfigLoader(".", base_env="", default_run_env="")
@@ -357,6 +361,7 @@ def remove_nan_rows(train_df: pd.DataFrame) -> tuple:
 def remove_duplicates_and_nans(
     train_df_filtered: pd.DataFrame,
     test_df_filtered: pd.DataFrame,
+    imputing_method: str = "knn",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Remove duplicated columns and NaN values from filtered datasets.
@@ -380,12 +385,84 @@ def remove_duplicates_and_nans(
     nan_mask = train_filt.isna().any(axis=1)
     train_clean = train_filt[~nan_mask]
 
-    # Fill NaN values in test set using KNN imputation
-    imputer = KNNImputer(n_neighbors=5)
-    test_clean = pd.DataFrame(
-        imputer.fit_transform(test_filt),
-        columns=test_filt.columns,
-        index=test_filt.index,
-    )
+    # Dictionary mapping imputing methods to their implementations
+    imputing_methods = {
+        "knn": lambda df: pd.DataFrame(
+            KNNImputer(n_neighbors=5).fit_transform(df),
+            columns=df.columns,
+            index=df.index,
+        ),
+        "mean": lambda df: df.fillna(df.mean()),
+        "median": lambda df: df.fillna(df.median()),
+        "interpolate": lambda df: df.interpolate(),
+        "iterative": lambda df: pd.DataFrame(
+            IterativeImputer(
+                estimator=HistGradientBoostingRegressor(),  # it can handle NaAns
+                max_iter=10,
+                random_state=0,
+            ).fit_transform(df),
+            columns=df.columns,
+            index=df.index,
+        ),
+    }
+
+    # Get the imputing function or raise error if invalid method
+    impute_func = imputing_methods.get(imputing_method)
+    if not impute_func:
+        raise ValueError(f"Invalid imputing method: {imputing_method}")
+
+    # Apply the selected imputing method
+    test_clean = impute_func(test_filt)
 
     return train_clean, test_clean
+
+
+def remove_collinear_features(df, threshold=0.95, mi_threshold=0.001, vif_threshold=10):
+    """
+    Remove collinear features from a dataframe based on correlation threshold, mutual information scores,
+    and variance inflation factor (VIF). Keeps features with highest predictive power.
+    """
+    # Calculate correlation matrix
+    correlation_matrix = df.corr().abs()
+    upper = correlation_matrix.where(
+        np.triu(np.ones(correlation_matrix.shape), k=1).astype(bool)
+    )
+
+    # Calculate mutual information scores
+    mi_scores = mutual_info_regression(df, df["RET"])
+    mi_scores = pd.Series(mi_scores, index=df.columns)
+
+    # Calculate VIF scores
+    vif_data = pd.DataFrame()
+    vif_data["Feature"] = df.columns
+    vif_data["VIF"] = [
+        variance_inflation_factor(df.values, i) for i in range(df.shape[1])
+    ]
+
+    features_to_drop = []
+
+    # Drop features with low MI scores
+    low_mi_features = mi_scores[mi_scores < mi_threshold].index.tolist()
+    features_to_drop.extend(low_mi_features)
+
+    # Drop features with high VIF
+    high_vif_features = vif_data[vif_data["VIF"] > vif_threshold]["Feature"].tolist()
+    features_to_drop.extend(high_vif_features)
+
+    # Handle correlated features
+    for column in upper.columns:
+        highly_correlated = upper[column][upper[column] > threshold].index.tolist()
+        if highly_correlated:
+            # Keep feature with highest MI score
+            corr_features_mi = mi_scores[highly_correlated + [column]]
+            features_to_drop.extend(
+                [f for f in corr_features_mi.index if f != corr_features_mi.idxmax()]
+            )
+
+    # Remove duplicates from drop list
+    features_to_drop = list(set(features_to_drop))
+
+    log.debug(
+        f"Dropping {len(features_to_drop)} features based on correlation, MI, and VIF: {features_to_drop}"
+    )
+    return df.drop(columns=features_to_drop)

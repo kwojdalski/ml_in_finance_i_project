@@ -1,4 +1,4 @@
-# ml_in_finance_i_project
+# qrt-stock-returns
 
 [![Powered by Kedro](https://img.shields.io/badge/powered_by-kedro-ffc900?logo=kedro)](https://kedro.org)
 
@@ -8,23 +8,39 @@ This is your new Kedro project with Kedro-Viz and PySpark setup, which was gener
 
 Take a look at the [Kedro documentation](https://docs.kedro.org) to get started.
 
+## Installation
 
-# Main commands
-
-## How to install dependencies
-
-To install them, run:
+### Install dependencies:
 
 ```
 pip install -r requirements.txt
 ```
 
-## How to run your Kedro pipeline
+### Download data:
 
-Run the following command to run all the pipelines:
+* Go to: https://challengedata.ens.fr/participants/challenges/23/
+* Register and download the data
+* Rename files from `x_train_*`, `y_train_*`, `x_test_*` to `x_train.csv`, `y_train.csv`, `x_test.csv`
+* Put them in `data/01_raw/`
+
+### Run the pipeline:
+
+1) Run the following command to run all the pipelines:
 
 ```
 kedro run
+```
+
+2) Run specific pipeline:
+
+```
+kedro run --pipeline=reporting
+```
+
+3) Run specific node:
+
+```
+kedro run --node=plot_returns_volume_node
 ```
 
 In order to run visualization, run the following command:
@@ -32,16 +48,6 @@ In order to run visualization, run the following command:
 ```
 kedro viz run
 ```
-
-## How to test the project
-
-Run the following command to run the tests:
-
-```
-pytest
-```
-
-To configure the coverage threshold, look at the `.coveragerc` file.
 
 
 ## How to work with Kedro and notebooks
@@ -65,6 +71,7 @@ kedro jupyter notebook
 ```
 
 ### JupyterLab
+
 To use JupyterLab, you need to install it:
 
 ```
@@ -78,6 +85,7 @@ kedro jupyter lab
 ```
 
 ### IPython
+
 And if you want to run an IPython session:
 
 ```

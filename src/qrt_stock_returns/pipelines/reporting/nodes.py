@@ -471,3 +471,56 @@ def aggregate_model_results(
     )
     # return all_metrics
     return model_results, all_metrics_flattened
+
+
+def evaluate_xgboost(xgb_model, X_test, y_test, parameters):
+    """Evaluate XGBoost model performance."""
+    y_pred = xgb_model.predict(X_test)
+
+    model_metrics = {
+        "model_params": {
+            k: v
+            for k, v in xgb_model.get_params().items()
+            if isinstance(v, (int, float))
+        },
+        "accuracy": accuracy_score(y_test, y_pred),
+        "precision": precision_score(y_test, y_pred),
+        "recall": recall_score(y_test, y_pred),
+        "f1": f1_score(y_test, y_pred),
+        "roc_auc": roc_auc_score(y_test, y_pred),
+        "feature_importance": pd.DataFrame(
+            {"feature": X_test.columns, "importance": xgb_model.feature_importances_}
+        ).sort_values("importance", ascending=False),
+    }
+    all_metrics_flattened = {
+        k + "." + k2 + ("." + k3 if isinstance(v2, dict) else ""): v3
+        for k, v in model_metrics.items()
+        for k2, v2 in (v.items() if isinstance(v, dict) else {k: v}.items())
+        for k3, v3 in (v2.items() if isinstance(v2, dict) else {k2: v2}.items())
+    }
+    return model_metrics, all_metrics_flattened
+
+
+def generate_predictions(model, test_data):
+    """Generate predictions using trained model.
+
+    Args:
+        model: Trained XGBoost model
+        test_data: Test features
+
+    Returns:
+        DataFrame with predictions
+    """
+    y_proba = model.predict_proba(test_data)[:, 1]
+
+    # Create submission dataframe
+    submission_df = pd.DataFrame()
+    submission_df["pred"] = y_proba
+    submission_df.index = test_data.index
+
+    # Convert probabilities to binary predictions based on median threshold
+    submission_df["pred"] = (
+        submission_df["pred"].transform(lambda x: x > x.median()).astype(int)
+    )
+
+    return submission_df

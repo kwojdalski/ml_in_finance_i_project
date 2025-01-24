@@ -1,5 +1,5 @@
-"""ml_in_finance_i_project file for ensuring the package is executable
-as `ml-in-finance-i-project` and `python -m ml_in_finance_i_project`
+"""qrt_stock_returns file for ensuring the package is executable
+as `qrt-stock-returns` and `python -m qrt_stock_returns`
 """
 
 import sys

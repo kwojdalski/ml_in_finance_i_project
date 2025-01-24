@@ -6,6 +6,7 @@ from .nodes import (
     train_decision_tree,
     train_gradient_boosting,
     train_neural_network,
+    train_xgboost,
     tune_decision_tree,
     tune_gradient_boosting,
 )
@@ -40,6 +41,13 @@ def create_pipeline(**kwargs) -> Pipeline:
                 inputs=["X_train", "X_test", "grid_dt", "parameters"],
                 outputs=["X_train_selected", "X_test_selected", "important_features"],
                 name="select_important_features_node",
+            ),
+            node(
+                func=train_xgboost,
+                inputs=["X_train", "y_train", "parameters"],
+                outputs="xgboost_model",
+                name="train_xgboost_node",
+                tags=["model_training", "xgboost"],
             ),
             node(
                 func=tune_decision_tree,

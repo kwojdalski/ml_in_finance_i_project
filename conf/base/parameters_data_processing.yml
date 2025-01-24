@@ -54,8 +54,9 @@ raw_data:
   cat_cols: ["INDUSTRY", "INDUSTRY_GROUP", "SECTOR", "SUB_INDUSTRY", "STOCK", "DATE"]
 
 n_days: 5
-sample_n: 10000
+sample_n: 198429
 remove_id_cols: false
+imputing_method: "iterative"
 
 # Feature Processing Node Parameters
 feature_processing:
@@ -181,3 +182,7 @@ statistics_features:
   - RET_5_SUB_INDUSTRY_median
   - RET_5_SUB_INDUSTRY_std
 
+#remove_collinear_features:
+corr_threshold: 0.95
+mi_threshold: 0.001
+vif_threshold: 10

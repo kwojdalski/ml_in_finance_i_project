@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 requires-python = ">=3.9,<4.0"
-name = "ml_in_finance_i_project"
+name = "qrt-stock-returns"
 readme = "README.md"
 version = "3.12.0"
 dynamic = ["version"]
@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [project.scripts]
-"ml-in-finance-i-project" = "ml_in_finance_i_project.__main__:main"
+"qrt-stock-returns" = "qrt_stock_returns.__main__:main"
 
 [project.entry-points."kedro.hooks"]
 
@@ -45,15 +45,15 @@ dev = [
 ]
 
 [tool.setuptools.dynamic]
-version = {attr = "ml_in_finance_i_project.__version__"}
+version = {attr = "qrt_stock_returns.__version__"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
 namespaces = false
 
 [tool.kedro]
-package_name = "ml_in_finance_i_project"
-project_name = "ml_in_finance_i_project"
+package_name = "qrt_stock_returns"
+project_name = "qrt_stock_returns"
 kedro_init_version = "0.19.10"
 tools = "['Linting', 'Testing', 'Custom Logging', 'Documentation', 'Data Structure', 'PySpark', 'Kedro Viz']"
 example_pipeline = "True"
@@ -62,7 +62,7 @@ source_dir = "src"
 [tool.pytest.ini_options]
 addopts = """
 --cov-report term-missing \
---cov src/ml_in_finance_i_project -ra"""
+--cov src/qrt_stock_returns -ra"""
 
 [tool.coverage.report]
 fail_under = 0

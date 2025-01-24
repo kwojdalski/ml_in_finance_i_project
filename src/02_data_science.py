@@ -44,8 +44,8 @@ import kedro.ipython
 import torch
 from sklearn.metrics import classification_report
 
-from src.ml_in_finance_i_project.pipelines.data_science.nodes import model_fit
-from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
+from src.qrt_stock_returns.pipelines.data_science.nodes import model_fit
+from src.qrt_stock_returns.utils import get_node_idx, get_node_outputs
 
 
 # %% [markdown]
@@ -53,14 +53,19 @@ from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
 # - Run pipeline nodes right here in the notebook
 # %%
 def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
-    """Run a specific node from a pipeline."""
-    from kedro.framework.session import KedroSession
+    """
+    Executes a specific node within the data processing pipeline.
 
-    with KedroSession.create() as session:
-        context = session.load_context()
-        pipeline = context.pipelines[pipeline_name]
-        node = [n for n in pipeline.nodes if n.name == node_name][0]
-        return node.run(inputs)
+    Parameters:
+        pipeline_name (str): Target pipeline identifier
+        node_name (str): Specific node to execute
+        inputs (dict): Node input parameters
+
+    Returns:
+        Output from node execution
+    """
+    node_idx = get_node_idx(pipelines[pipeline_name], node_name)
+    return pipelines[pipeline_name].nodes[node_idx].run(inputs)
 
 
 # %% [markdown]
@@ -83,6 +88,11 @@ out9 = get_node_outputs(
     catalog,
 )
 
+
+# %%
+# ### Check Data
+
+out9["train_df_clean"].info()
 # %% [markdown]
 # ## Split Data into Training and Test Sets
 # %%
@@ -99,6 +109,7 @@ X_train = out10["X_train"]
 X_test = out10["X_test"]
 y_train = out10["y_train"]
 y_test = out10["y_test"]
+
 # %% [markdown]
 # ## Basic Decision Tree Model
 # %%
@@ -209,7 +220,6 @@ model_fit(
 # %% [markdown]
 # ### Prediction on the Test Dataframe
 # %%
-
 prediction = grid_dt["model"].predict(X_test_selected)
 log.info(f"{prediction}")
 
@@ -223,7 +233,6 @@ log.info(f"{prediction}")
 # ### Tuning Parameters with GridSearch
 
 # %%
-
 gbm_classifier = run_pipeline_node(
     "data_science",
     "train_gradient_boosting_node",
@@ -264,7 +273,7 @@ tuned_gb = run_pipeline_node(
     "data_science",
     "tune_gradient_boosting_node",
     {
-        "base_gb": gbm_classifier["model"],
+        "base_gb": gbm_classifier,
         "X_train_selected": X_train_selected,
         "y_train": y_train,
         "parameters": conf_params,
@@ -412,11 +421,11 @@ run_pipeline_node(
 # sub = out9["test_df_clean"].copy()
 # sub["pred"] = y_pred
 # y_pred = sub["pred"].transform(lambda x: x > x.median()).values
-#
+
 # submission = pd.Series(y_pred)
 # submission.index = sub.index
 # submission.name = target
-#
+
 # submission.to_csv("./data/07_model_output/submission.csv", index=True, header=True)
 # %% [markdown]
 # ## Key Findings

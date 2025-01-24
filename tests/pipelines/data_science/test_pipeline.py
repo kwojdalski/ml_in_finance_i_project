@@ -5,11 +5,10 @@ import pandas as pd
 import pytest
 from kedro.io import DataCatalog
 from kedro.runner import SequentialRunner
-
-from ml_in_finance_i_project.pipelines.data_science import (
+from qrt_stock_returns.pipelines.data_science import (
     create_pipeline as create_ds_pipeline,
 )
-from ml_in_finance_i_project.pipelines.data_science.nodes import (
+from qrt_stock_returns.pipelines.data_science.nodes import (
     split_data,
     train_decision_tree,
     tune_decision_tree,

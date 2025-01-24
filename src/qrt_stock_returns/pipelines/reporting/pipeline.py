@@ -2,6 +2,8 @@ from kedro.pipeline import Pipeline, node, pipeline
 
 from .nodes import (
     aggregate_model_results,
+    evaluate_xgboost,
+    generate_predictions,
     plot_correlation_matrix,
     plot_feature_importance,
     plot_model_accuracy,
@@ -66,6 +68,20 @@ def create_pipeline(**kwargs) -> Pipeline:
                 outputs=["model_results", "all_metrics"],
                 name="aggregate_model_results_node",
                 tags=["reporting", "metrics"],
+            ),
+            node(
+                func=evaluate_xgboost,
+                inputs=["xgboost_model", "X_test", "y_test", "parameters"],
+                outputs=["xgboost_results_dict", "xgboost_metrics"],
+                name="evaluate_xgboost_node",
+                tags=["reporting", "metrics"],
+            ),
+            node(
+                func=generate_predictions,
+                inputs=["xgboost_model", "test_df_clean"],
+                outputs="predictions",
+                name="generate_predictions_node",
+                tags=["reporting", "predictions"],
             ),
         ]
     )

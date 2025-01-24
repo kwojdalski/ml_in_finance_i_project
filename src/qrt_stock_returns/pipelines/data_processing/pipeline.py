@@ -98,7 +98,11 @@ def create_pipeline(**kwargs) -> Pipeline:
             ),
             node(
                 func=remove_duplicates_and_nans,
-                inputs=["train_df_filtered", "test_df_filtered"],
+                inputs=[
+                    "train_df_filtered",
+                    "test_df_filtered",
+                    "params:imputing_method",
+                ],
                 outputs=[
                     "train_df_clean",
                     "test_df_clean",

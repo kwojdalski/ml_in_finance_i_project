@@ -13,14 +13,16 @@ from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_sp
 from sklearn.preprocessing import StandardScaler
 from torch import nn
 
+import xgboost as xgb
+
 path = Path(__file__).parent.parent.parent.parent.parent
 sys.path.append(str(path))
 
-from src.ml_in_finance_i_project.GBClassifierGridSearch import (
+from src.qrt_stock_returns.GBClassifierGridSearch import (  # noqa
     HistGBClassifierGridSearch,
 )
-from src.ml_in_finance_i_project.nn import Net
-from src.ml_in_finance_i_project.utils import compute_roc, evaluation
+from src.qrt_stock_returns.nn import Net  # noqa
+from src.qrt_stock_returns.utils import compute_roc, evaluation  # noqa
 
 
 def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
@@ -110,7 +112,7 @@ def train_neural_network(
     batch_size = parameters["model_options"]["batch_size"]
 
     for epoch in range(n_epochs):
-        print(f"Epoch {epoch+1}/{n_epochs}")
+        log.info(f"Epoch {epoch+1}/{n_epochs}")
         for i in range(0, len(X_train), batch_size):
             batch_X = X_train_tensor[i : i + batch_size]
             batch_y = y_train_tensor[i : i + batch_size]
@@ -330,3 +332,41 @@ def model_fit(
         evaluation(model, X, Y, kfold)
     if roc:
         compute_roc(Y, predictions, plot=True)
+
+
+def train_xgboost(X_train, y_train, parameters: dict):
+    """Train XGBoost model and perform grid search CV.
+
+    Args:
+        X_train: Training features
+        y_train: Training target
+        parameters: Model parameters
+
+    Returns:
+        Trained XGBoost model
+    """
+    # Initialize XGBoost model with default parameters
+    xgb_model = xgb.XGBClassifier(
+        objective="binary:logistic",
+        n_jobs=1,
+        reg_alpha=0.5,  # L1 regularization term for elastic net
+        reg_lambda=0.5,  # L2 regularization term for elastic net
+        eval_metric="logloss",  # Evaluation metric for binary classification
+        verbosity=2,  # Add verbosity to see detailed output during training
+    )
+
+    optimization_dict = {"max_depth": [2, 4, 6], "n_estimators": [50, 100, 200]}
+
+    # Initialize GridSearchCV with XGBoost model
+    # model = GridSearchCV(
+    #     estimator=xgb_model,  # The base XGBoost model to optimize
+    #     param_grid=optimization_dict,  # Grid of parameters to search
+    #     scoring="accuracy",  # Metric to evaluate performance
+    #     verbose=3,  # Print training progress
+    #     cv=5,  # Number of cross-validation folds
+    # )
+
+    # Train the model
+    xgb_model.fit(X_train, y_train)
+
+    return xgb_model

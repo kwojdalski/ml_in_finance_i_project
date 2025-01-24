@@ -203,7 +203,7 @@ import warnings
 
 from IPython.display import Markdown as md
 
-from src.ml_in_finance_i_project.utils import get_node_idx, get_node_outputs
+from src.qrt_stock_returns.utils import get_node_idx, get_node_outputs
 
 # %%
 # Load the datasets
@@ -236,8 +236,8 @@ def setup_colab_environment():
 
         drive.mount("/content/drive")
         req_symlinks = [
-            ("data", "ml_in_finance_i_project/data"),
-            ("src", "ml_in_finance_i_project/src"),
+            ("data", "qrt_stock_returns/data"),
+            ("src", "qrt_stock_returns/src"),
         ]
         # Create symlinks if they don't exist
         for dest, src in req_symlinks:
@@ -498,7 +498,7 @@ else:
 #    - While potentially predictive, excluded for model generalization
 #    - Includes: ID, STOCK, DATE
 #
-# 2. ** Remaining Categorical Features**
+# 2. **Remaining Categorical Features**
 #    - INDUSTRY, INDUSTRY_GROUP, SECTOR, SUB_INDUSTRY
 #    - Used in feature engineering but removed from final model
 #
@@ -582,5 +582,6 @@ out7 = run_pipeline_node(
     {
         "train_df_filtered": out6["train_df_filtered"],
         "test_df_filtered": out6["test_df_filtered"],
+        "params:imputing_method": "iterative",
     },
 )
