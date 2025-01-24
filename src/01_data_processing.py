@@ -308,7 +308,6 @@ out = run_pipeline_node(
         "params:sample_n": conf_params["sample_n"],
     },
 )
-()
 # %% [markdown]
 # #### <a id='toc1_4_1_1_'></a>[Visual Data Analysis](#toc0_)
 #
@@ -321,7 +320,7 @@ run_pipeline_node(
     "plot_returns_volume_node",
     {
         "train_df": out["train_df"],
-        "params:example_row_id": 2,
+        "params:example_row_id": 4,
     },
 )["returns_volume_plot"]
 
