@@ -1,4 +1,4 @@
-import logging as log
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -11,11 +11,17 @@ from sklearn.feature_selection import mutual_info_regression
 from sklearn.impute import IterativeImputer, KNNImputer
 from sklearn.preprocessing import LabelEncoder
 from statsmodels.stats.outliers_influence import variance_inflation_factor
-from ta_indicators import calculate_all_ta_indicators
+
+from src.qrt_stock_returns.pipelines.data_processing.ta_indicators import (
+    calculate_all_ta_indicators,
+)
 
 conf_loader = OmegaConfigLoader(".", base_env="", default_run_env="")
 # Read the configuration file
 conf_params = conf_loader["parameters"]
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 
 def load_data(
@@ -50,7 +56,7 @@ def load_data(
     # Sample training data if requested
     if sample_n is not None:
         train_df = train_df.sample(n=sample_n, random_state=42)
-        test_df = test_df.sample(n=sample_n, random_state=42)
+        test_df = test_df.sample(n=conf_params["sample_test_n"], random_state=42)
         log.debug(f"Sampled {sample_n} rows from train_df and test_df")
 
     return train_df, test_df
@@ -61,6 +67,7 @@ def preprocess_data(
     test_df: pd.DataFrame,
     remove_id_cols: bool = False,
     n_days: int = 5,
+    drop_na: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Args:
@@ -82,9 +89,19 @@ def preprocess_data(
 
     # Clean data and drop NA values
     n_before = len(train_df)
-    train_df = train_df.dropna()
+    log.debug(
+        f"Before dropping / imputing for NA values: {n_before}; drop_na: {drop_na}"
+    )
+
+    if drop_na:
+        train_df = train_df.dropna()
+    else:
+        train_df, test_df = remove_duplicates_and_nans(
+            train_df, test_df, imputing_method="iterative"
+        )
+
     n_after = len(train_df)
-    log.debug(f"Dropped {n_before - n_after} rows with NA values from train_df")
+    log.info(f"Dropped {n_before - n_after} rows with NA values from train_df")
 
     # Set index and remove duplicates
     train_df = train_df.loc[:, ~train_df.columns.duplicated()]
@@ -159,9 +176,34 @@ def create_model_input_table(
     return model_input_table
 
 
+def retrieve_id_cols(
+    train_df: pd.DataFrame, test_df: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Retrieve only ID columns from dataframe.
+
+    Args:
+        df: Input dataframe
+
+    Returns:
+        DataFrame containing only ID columns
+    """
+    return train_df[conf_params["raw_data"]["id_cols"]], test_df[
+        conf_params["raw_data"]["id_cols"]
+    ]
+
+
 def drop_id_cols(
     train_df: pd.DataFrame, test_df: pd.DataFrame
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Drop ID columns from train and test dataframes.
+
+    Args:
+        train_df: Training dataframe
+        test_df: Test dataframe
+
+    Returns:
+        Tuple of dataframes with ID columns dropped
+    """
     return train_df.drop(
         conf_params["raw_data"]["id_cols"], axis=1, errors="ignore"
     ), test_df.drop(conf_params["raw_data"]["id_cols"], axis=1, errors="ignore")
@@ -334,7 +376,9 @@ def calculate_statistical_features(
     for gb_feature in gb_features:
         for shift in shifts:
             for stat in statistics:
-                name = f"{target_feature}_{shift}_{gb_feature[-1]}_{stat}"
+                name = (
+                    f"{target_feature}_{shift}_{gb_feature[0]}_{gb_feature[-1]}_{stat}"
+                )
                 feat = f"{target_feature}_{shift}"
                 new_features.append(name)
                 for data in [train_df, test_df]:
@@ -381,10 +425,6 @@ def remove_duplicates_and_nans(
     train_filt = train_df_filtered.loc[:, ~train_df_filtered.columns.duplicated()]
     test_filt = test_df_filtered.loc[:, ~test_df_filtered.columns.duplicated()]
 
-    # Then handle NaN values
-    nan_mask = train_filt.isna().any(axis=1)
-    train_clean = train_filt[~nan_mask]
-
     # Dictionary mapping imputing methods to their implementations
     imputing_methods = {
         "knn": lambda df: pd.DataFrame(
@@ -412,6 +452,7 @@ def remove_duplicates_and_nans(
         raise ValueError(f"Invalid imputing method: {imputing_method}")
 
     # Apply the selected imputing method
+    train_clean = impute_func(train_filt)
     test_clean = impute_func(test_filt)
 
     return train_clean, test_clean
@@ -466,3 +507,170 @@ def remove_collinear_features(df, threshold=0.95, mi_threshold=0.001, vif_thresh
         f"Dropping {len(features_to_drop)} features based on correlation, MI, and VIF: {features_to_drop}"
     )
     return df.drop(columns=features_to_drop)
+
+
+def merge_with_features(  # noqa
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    train_ta_indicators: pd.DataFrame,
+    test_ta_indicators: pd.DataFrame,
+    train_df_statistical_features: pd.DataFrame,
+    test_df_statistical_features: pd.DataFrame,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Merge train and test dataframes with technical and statistical features.
+
+    Args:
+        train_df: Training dataframe
+        test_df: Test dataframe
+        train_ta_indicators: Technical features for training data
+        test_ta_indicators: Technical features for test data
+        train_df_statistical_features: Statistical features for training data
+        test_df_statistical_features: Statistical features for test data
+
+    Returns:
+        Tuple containing:
+        - Merged training dataframe
+        - Merged test dataframe
+    """
+    train_df = pd.concat(
+        [train_df, train_df_statistical_features], axis=1, join="inner"
+    )
+    test_df = pd.concat([test_df, test_df_statistical_features], axis=1, join="inner")
+    train_df = pd.concat([train_df, train_ta_indicators], axis=1, join="inner")
+    test_df = pd.concat([test_df, test_ta_indicators], axis=1, join="inner")
+    return train_df, test_df
+
+
+# %%
+def detect_outliers(
+    X_train: pd.DataFrame, X_test: pd.DataFrame = None, threshold: float = 3
+) -> tuple:
+    """Detect and handle outliers using z-score method.
+
+    Args:
+        X_train: Training features dataframe
+        X_test: Test features dataframe (optional)
+        threshold: Z-score threshold for outlier detection (default=3)
+
+    Returns:
+        Tuple of (cleaned training df, cleaned test df, outlier mask)
+    """
+    X_train = X_train.copy()
+    if X_test is not None:
+        X_test = X_test.copy()
+
+    # Calculate z-scores for each feature
+    z_scores = np.abs((X_train - X_train.mean()) / X_train.std())
+
+    # Create outlier mask
+    outlier_mask = (z_scores > threshold).any(axis=1)
+
+    # Log outlier statistics
+    n_outliers = outlier_mask.sum()
+    pct_outliers = 100 * n_outliers / len(X_train)
+    log.info(f"Detected {n_outliers} ({pct_outliers:.2f}%) samples as outliers")
+
+    return X_train, X_test, outlier_mask
+
+
+# %%
+def handle_outliers(
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame = None,
+    threshold: float = 3,
+    method: str = "winsorize",
+) -> tuple:
+    """Handle outliers using specified method.
+
+    Args:
+        X_train: Training features dataframe
+        X_test: Test features dataframe (optional)
+        threshold: Z-score threshold for outlier detection (default=3)
+        method: Method to handle outliers ('clip', 'remove', or 'winsorize')
+
+    Returns:
+        Tuple of cleaned training and test dataframes
+    """
+    X_train = X_train.copy()
+    if X_test is not None:
+        X_test = X_test.copy()
+
+    # Get outlier detection results
+    _, _, outlier_mask = detect_outliers(X_train, X_test, threshold)
+
+    if method == "remove":
+        # Remove outliers
+        X_train_clean = X_train[~outlier_mask]
+        if X_test is not None:
+            X_test_clean = X_test.copy()  # Don't remove from test set
+
+    elif method == "clip":
+        # Clip values to threshold
+        X_train_clean = X_train.copy()
+        upper_bounds = X_train.mean() + threshold * X_train.std()
+        lower_bounds = X_train.mean() - threshold * X_train.std()
+
+        X_train_clean = X_train_clean.clip(
+            lower=lower_bounds, upper=upper_bounds, axis=1
+        )
+
+        if X_test is not None:
+            X_test_clean = X_test.clip(lower=lower_bounds, upper=upper_bounds, axis=1)
+
+    elif method == "winsorize":
+        # Winsorize outliers (set to percentile values)
+        X_train_clean = X_train.copy()
+        for col in X_train.columns:
+            q1 = X_train[col].quantile(0.25)
+            q3 = X_train[col].quantile(0.75)
+            iqr = q3 - q1
+            upper = q3 + 1.5 * iqr
+            lower = q1 - 1.5 * iqr
+            X_train_clean[col] = X_train_clean[col].clip(lower=lower, upper=upper)
+
+        if X_test is not None:
+            X_test_clean = X_test.copy()
+            for col in X_test.columns:
+                X_test_clean[col] = X_test_clean[col].clip(lower=lower, upper=upper)
+
+    else:
+        raise ValueError("Method must be one of: 'remove', 'clip', 'winsorize'")
+
+    log.info(f"Handled outliers using {method} method")
+
+    if X_test is not None:
+        return X_train_clean, X_test_clean
+    return X_train_clean, None
+
+
+# %%
+def transform_volret_features(
+    train_df: pd.DataFrame, test_df: pd.DataFrame = None
+) -> tuple:
+    """Apply log transformation to volume features.
+
+    Args:
+        train_df: Training features dataframe
+        test_df: Test features dataframe (optional)
+
+    Returns:
+        Tuple of transformed training and test dataframes
+    """
+    train_df = train_df.copy()
+    if test_df is not None:
+        test_df = test_df.copy()
+
+    volret_cols = [
+        col
+        for col in train_df.columns
+        if col.startswith("VOLUME") or col.startswith("RET")
+    ]
+    # Exclude target column if present
+    volret_cols = [col for col in volret_cols if col != "RET"]
+    log.info("Excluded target column 'RET' from transformation")
+    for col in volret_cols:
+        train_df[col] = np.log1p(train_df[col])
+        if test_df is not None:
+            test_df[col] = np.log1p(test_df[col])
+
+    return train_df, test_df

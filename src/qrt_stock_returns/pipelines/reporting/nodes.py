@@ -1,4 +1,4 @@
-# This function uses plotly.express
+import logging as log
 import sys
 from pathlib import Path
 
@@ -9,6 +9,17 @@ import plotly.graph_objects as go
 import torch
 from kedro.config import MissingConfigException, OmegaConfigLoader
 from kedro.framework.project import settings
+from plotnine import (
+    aes,
+    element_text,
+    geom_bar,
+    geom_boxplot,
+    geom_histogram,
+    geom_point,
+    ggplot,
+    labs,
+    theme,
+)
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -473,32 +484,24 @@ def aggregate_model_results(
     return model_results, all_metrics_flattened
 
 
-def evaluate_xgboost(xgb_model, X_test, y_test, parameters):
+def evaluate_xgboost(xgb_model, X_test, y_test, parameters) -> dict:
     """Evaluate XGBoost model performance."""
     y_pred = xgb_model.predict(X_test)
 
     model_metrics = {
-        "model_params": {
-            k: v
-            for k, v in xgb_model.get_params().items()
-            if isinstance(v, (int, float))
-        },
         "accuracy": accuracy_score(y_test, y_pred),
         "precision": precision_score(y_test, y_pred),
         "recall": recall_score(y_test, y_pred),
         "f1": f1_score(y_test, y_pred),
         "roc_auc": roc_auc_score(y_test, y_pred),
-        "feature_importance": pd.DataFrame(
-            {"feature": X_test.columns, "importance": xgb_model.feature_importances_}
-        ).sort_values("importance", ascending=False),
     }
-    all_metrics_flattened = {
+    xgb_metrics = {
         k + "." + k2 + ("." + k3 if isinstance(v2, dict) else ""): v3
         for k, v in model_metrics.items()
         for k2, v2 in (v.items() if isinstance(v, dict) else {k: v}.items())
         for k3, v3 in (v2.items() if isinstance(v2, dict) else {k2: v2}.items())
     }
-    return model_metrics, all_metrics_flattened
+    return xgb_metrics
 
 
 def generate_predictions(model, test_data):
@@ -524,3 +527,106 @@ def generate_predictions(model, test_data):
     )
 
     return submission_df
+
+
+def plot_outliers_analysis(df, threshold=3):
+    """
+    Create visualizations to analyze outliers in multiple dimensions using plotnine.
+
+    Args:
+        df: DataFrame containing features
+        threshold: Z-score threshold for outlier detection
+    """
+    # Calculate z-scores for each feature
+    z_scores = np.abs((df - df.mean()) / df.std())
+
+    # Create outlier mask
+    outlier_mask = (z_scores > threshold).any(axis=1)
+
+    # Calculate number of features where each sample is an outlier
+    outlier_counts = (z_scores > threshold).sum(axis=1)
+
+    # Prepare data for plotting
+    outlier_counts_df = pd.DataFrame({"count": outlier_counts})
+
+    # Calculate percentage of outliers by feature
+    outlier_pct_by_feature = (z_scores > threshold).mean() * 100
+    feature_pct_df = (
+        pd.DataFrame(
+            {
+                "feature": outlier_pct_by_feature.index,
+                "percentage": outlier_pct_by_feature.values,
+            }
+        )
+        .sort_values("percentage", ascending=False)
+        .head(20)
+    )
+
+    # Prepare data for z-score boxplot
+    top_features = outlier_pct_by_feature.head(10).index
+    z_scores_melted = z_scores[top_features].melt(
+        var_name="feature", value_name="z_score"
+    )
+
+    # Prepare data for scatter plot
+    top_2_features = outlier_pct_by_feature.head(2).index
+    scatter_df = pd.DataFrame(
+        {
+            "x": df[top_2_features[0]],
+            "y": df[top_2_features[1]],
+            "outlier": outlier_mask.map({True: "Outlier", False: "Normal"}),
+        }
+    )
+
+    # Plot 1: Distribution of outlier features
+    p1 = (
+        ggplot(outlier_counts_df, aes(x="count"))
+        + geom_histogram(bins=30)
+        + labs(
+            title="Distribution of Outlier Features per Sample",
+            x="Number of Features where Sample is Outlier",
+            y="Count of Samples",
+        )
+    )
+
+    # Plot 2: Top features by outlier percentage
+    p2 = (
+        ggplot(feature_pct_df, aes(x="feature", y="percentage"))
+        + geom_bar(stat="identity")
+        + theme(axis_text_x=element_text(angle=45, hjust=1))
+        + labs(
+            title="Top 20 Features by Outlier Percentage",
+            x="Feature",
+            y="% Samples as Outliers",
+        )
+    )
+
+    # Plot 3: Z-score distribution
+    p3 = (
+        ggplot(z_scores_melted, aes(x="feature", y="z_score"))
+        + geom_boxplot()
+        + theme(axis_text_x=element_text(angle=45, hjust=1))
+        + labs(
+            title="Z-Score Distribution for Top 10 Features", x="Feature", y="Z-Score"
+        )
+    )
+
+    # Plot 4: Scatter plot
+    p4 = (
+        ggplot(scatter_df, aes(x="x", y="y", color="outlier"))
+        + geom_point(alpha=0.1)
+        + labs(
+            title="Scatter Plot of Top 2 Features",
+            x=top_2_features[0],
+            y=top_2_features[1],
+        )
+    )
+
+    # Print summary statistics
+    n_outliers = outlier_mask.sum()
+    pct_outliers = 100 * n_outliers / len(df)
+    log.info("\nOutlier Analysis Summary:")
+    log.info(f"Total samples with outliers: {n_outliers} ({pct_outliers:.2f}%)")
+    log.info(f"Average outlier features per sample: {outlier_counts.mean():.2f}")
+    log.info(f"Max outlier features in a single sample: {outlier_counts.max()}")
+    return p1, p2, p3, p4

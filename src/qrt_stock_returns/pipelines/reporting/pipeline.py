@@ -72,13 +72,13 @@ def create_pipeline(**kwargs) -> Pipeline:
             node(
                 func=evaluate_xgboost,
                 inputs=["xgboost_model", "X_test", "y_test", "parameters"],
-                outputs=["xgboost_results_dict", "xgboost_metrics"],
+                outputs="xgboost_metrics",
                 name="evaluate_xgboost_node",
                 tags=["reporting", "metrics"],
             ),
             node(
                 func=generate_predictions,
-                inputs=["xgboost_model", "test_df_clean"],
+                inputs=["xgboost_model", "test_df_winsorized"],
                 outputs="predictions",
                 name="generate_predictions_node",
                 tags=["reporting", "predictions"],

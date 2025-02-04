@@ -179,31 +179,19 @@
 # ## Library Imports
 
 # %%
-import sys
-from pathlib import Path
-
-try:
-    # VS Code
-    path = Path(__file__).parent.parent
-    path = path / "src"
-except NameError:
-    # jupyter notebook
-    path = Path().absolute().parent
-sys.path.append(str(path))
-
-import kedro.ipython
-from kedro.ipython import get_ipython
-
-kedro.ipython.load_ipython_extension(get_ipython())
-
-
-# %%
 import logging as log
 import warnings
 
 from IPython.display import Markdown as md
 
-from src.qrt_stock_returns.utils import get_node_idx, get_node_outputs
+from src.qrt_stock_returns.utils import (
+    catalog,
+    context,
+    get_node_idx,
+    get_node_outputs,
+    pipelines,
+    run_pipeline_node,
+)
 
 # %%
 # Load the datasets
@@ -247,28 +235,6 @@ def setup_colab_environment():
 
     except ImportError:
         return False
-
-
-# %% [markdown]
-# #### <a id='toc1_3_3_1_'></a>[Pipeline Node Execution Configuration](#toc0_)
-# Defining function for running specific pipeline nodes
-
-
-# %%
-def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
-    """
-    Executes a specific node within the data processing pipeline.
-
-    Parameters:
-        pipeline_name (str): Target pipeline identifier
-        node_name (str): Specific node to execute
-        inputs (dict): Node input parameters
-
-    Returns:
-        Output from node execution
-    """
-    node_idx = get_node_idx(pipelines[pipeline_name], node_name)
-    return pipelines[pipeline_name].nodes[node_idx].run(inputs)
 
 
 # %% [markdown]
@@ -336,9 +302,9 @@ out["test_df"].head()
 # #### <a id='toc1_4_1_3_'></a>[Dataset Information](#toc0_)
 
 # %%
-print("Training Dataset Info:")
+log.info("Training Dataset Info:")
 out["train_df"].info()
-print("\nTest Dataset Info:")
+log.info("\nTest Dataset Info:")
 out["test_df"].info()
 
 # %% [markdown]
@@ -422,7 +388,11 @@ out_corr["correlation_matrix_plot"]
 out_preprocessed = run_pipeline_node(
     "data_processing",
     "preprocess_data_node",
-    {"train_df": out["train_df"], "test_df": out["test_df"]},
+    {
+        "train_df": out["train_df"],
+        "test_df": out["test_df"],
+        "params:drop_na": False,
+    },
 )
 # %% [markdown]
 # ## <a id='toc1_5_'></a>[Feature Engineering](#toc0_)
@@ -490,6 +460,20 @@ else:
         catalog,
     )
 
+# %%
+out_merged = run_pipeline_node(
+    "data_processing",
+    "merge_with_features_node",
+    {
+        "train_df_preprocessed": out_preprocessed["train_df"],
+        "test_df_preprocessed": out_preprocessed["test_df"],
+        "train_df_statistical_features": out2["train_df_statistical_features"],
+        "test_df_statistical_features": out2["test_df_statistical_features"],
+        "train_ta_indicators": out3["train_ta_indicators"],
+        "test_ta_indicators": out3["test_ta_indicators"],
+    },
+)
+
 # %% [markdown]
 # ### <a id='toc1_5_2_'></a>[Feature Selection Strategy](#toc0_)
 #
@@ -504,6 +488,15 @@ else:
 #
 # Rationale: Focus on price/volume dynamics rather than static characteristics
 
+# %%
+out4 = run_pipeline_node(
+    "data_processing",
+    "retrieve_id_cols_node",
+    {
+        "train_df": out_preprocessed["train_df"],
+        "test_df": out_preprocessed["test_df"],
+    },
+)
 # %%
 out4 = run_pipeline_node(
     "data_processing",

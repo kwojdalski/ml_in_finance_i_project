@@ -2,7 +2,8 @@ import unittest
 
 import numpy as np
 import pandas as pd
-from qrt_stock_returns.ta_indicators import (
+
+from qrt_stock_returns.pipelines.data_processing.ta_indicators import (
     calculate_bollinger_bands,
     calculate_cumulative_returns,
     calculate_momentum,

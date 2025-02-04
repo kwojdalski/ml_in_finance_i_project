@@ -44,6 +44,10 @@ dev = [
     "ruff~=0.1.8"
 ]
 
+[tool.pyright]
+typeCheckingMode = "off"
+ignore = ["*"]
+
 [tool.setuptools.dynamic]
 version = {attr = "qrt_stock_returns.__version__"}
 

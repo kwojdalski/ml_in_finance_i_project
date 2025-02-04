@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/krzysztofwojdalski/github_projects/qrt-stock-returns/mlflow_runs/338876466534463082/31f48f7626bf49899031a05cdd681e1f/artifacts
+end_time: 1738690611776
+entry_point_name: ''
+experiment_id: '338876466534463082'
+lifecycle_stage: active
+run_id: 31f48f7626bf49899031a05cdd681e1f
+run_name: data_science
+run_uuid: 31f48f7626bf49899031a05cdd681e1f
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1738690611761
+status: 4
+tags: []
+user_id: krzysztofwojdalski

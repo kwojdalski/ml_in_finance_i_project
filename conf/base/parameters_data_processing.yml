@@ -54,7 +54,9 @@ raw_data:
   cat_cols: ["INDUSTRY", "INDUSTRY_GROUP", "SECTOR", "SUB_INDUSTRY", "STOCK", "DATE"]
 
 n_days: 5
-sample_n: 198429
+sample_n: 418595
+sample_test_n: 198429
+drop_na: false # impute instead
 remove_id_cols: false
 imputing_method: "iterative"
 
@@ -186,3 +188,6 @@ statistics_features:
 corr_threshold: 0.95
 mi_threshold: 0.001
 vif_threshold: 10
+
+outlier_threshold: 3
+outlier_method: "winsorize"

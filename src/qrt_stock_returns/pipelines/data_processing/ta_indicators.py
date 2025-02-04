@@ -2,7 +2,7 @@ import pandas as pd
 import talib
 
 
-def calculate_ta_indicators(
+def calculate_ta_indicators(  # noqa
     df: pd.DataFrame,
     periods: list[int] = [2, 5, 14],
     remove_nan: bool = True,

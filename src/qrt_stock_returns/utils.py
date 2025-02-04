@@ -1,85 +1,34 @@
-import logging as log
-import sys
+import logging
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import pandas as pd
-from kedro.config import MissingConfigException, OmegaConfigLoader
-from kedro.framework.project import settings
-from sklearn.metrics import auc, roc_curve
-from sklearn.model_selection import cross_val_score
+from kedro.config import MissingConfigException
+from kedro.framework.project import find_pipelines
+from kedro.framework.session import KedroSession
+from kedro.framework.startup import bootstrap_project
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.StreamHandler()],
+)
 project_path = Path(__file__).parent.parent.parent
-sys.path.append(str(project_path))
-conf_path = str(project_path / settings.CONF_SOURCE)
-conf_loader = OmegaConfigLoader(conf_source=conf_path)
+
+bootstrap_project(project_path)
+
+with KedroSession.create(project_path=project_path) as session:
+    context = session.load_context()
+    catalog = context.catalog
+    pipelines = find_pipelines()
 
 try:
-    conf_params = conf_loader["parameters"]
+    conf_params = context.config_loader.get("parameters")
 except MissingConfigException:
     conf_params = {}
 
 id_cols = conf_params["raw_data"]["id_cols"]
 cat_cols = conf_params["raw_data"]["cat_cols"]
 kfold = conf_params["model_options"]["kfold"]
-
-
-def evaluation(model, X: pd.DataFrame, Y: pd.Series, kfold: int):
-    """
-    Evaluate a model using k-fold cross validation and print performance metrics.
-
-    This function performs k-fold cross validation on the given model and prints the mean
-    and standard deviation of accuracy, precision and recall scores. This helps assess
-    model performance and detect potential overfitting.
-
-    Args:
-        model: A fitted sklearn model object that implements predict()
-        X (pd.DataFrame): Feature matrix
-        Y (pd.Series): Target variable
-        kfold (int): Number of folds for cross validation
-
-    Returns:
-        None: Prints cross validation metrics to log
-    """
-    # Cross Validation to test and anticipate overfitting problem
-    scores1 = cross_val_score(model, X, Y, cv=kfold, scoring="accuracy")
-    scores2 = cross_val_score(model, X, Y, cv=kfold, scoring="precision")
-    scores3 = cross_val_score(model, X, Y, cv=kfold, scoring="recall")
-    # The mean score and standard deviation of the score estimate
-    log.info(
-        "Cross Validation Accuracy: %0.5f (+/- %0.2f)" % (scores1.mean(), scores1.std())
-    )
-    log.info(
-        "Cross Validation Precision: %0.5f (+/- %0.2f)"
-        % (scores2.mean(), scores2.std())
-    )
-    log.info(
-        "Cross Validation Recall: %0.5f (+/- %0.2f)" % (scores3.mean(), scores3.std())
-    )
-
-
-# %%
-def compute_roc(
-    Y: pd.Series, y_pred: pd.Series, plot: bool = True
-) -> tuple[float, float, float]:
-    fpr = dict()
-    tpr = dict()
-    auc_score = dict()
-    fpr, tpr, _ = roc_curve(Y, y_pred)
-    auc_score = auc(fpr, tpr)
-    if plot:
-        plt.figure(figsize=(7, 6))
-        plt.plot(fpr, tpr, color="blue", label="ROC curve (area = %0.2f)" % auc_score)
-        plt.plot([0, 1], [0, 1], color="navy", lw=3, linestyle="--")
-        plt.legend(loc="upper right")
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.0])
-        plt.title("ROC Curve")
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title("Receiver operating characteristic")
-        plt.show()
-    return fpr, tpr, auc_score
 
 
 def get_node_idx(pipeline, node_name):
@@ -220,3 +169,20 @@ def get_node_outputs(node, catalog):
 
     print(f"\nFinished loading {len(node.outputs)} outputs")
     return output_dict
+
+
+# %%
+def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
+    """
+    Executes a specific node within the data processing pipeline.
+
+    Parameters:
+        pipeline_name (str): Target pipeline identifier
+        node_name (str): Specific node to execute
+        inputs (dict): Node input parameters
+
+    Returns:
+        Output from node execution
+    """
+    node_idx = get_node_idx(pipelines[pipeline_name], node_name)
+    return pipelines[pipeline_name].nodes[node_idx].run(inputs)

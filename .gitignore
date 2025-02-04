@@ -11,6 +11,8 @@ data/*
 !data/07_model_output/.gitkeep
 !data/08_reporting/.gitkeep
 
+mlflow_runs/*
+catboost*
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=kedro-catalog-0.19.json
 # Here you can define all your data sets by using simple YAML syntax.
 #
 # Documentation for this file format can be found in "The Data Catalog"
@@ -153,10 +154,22 @@ features_rm_duplicates:
   filepath: data/07_model_output/features_rm_duplicates.pkl
   type: pickle.PickleDataset
 
-all_metrics:
-  filepath: data/09_tracking/all_metrics.json
+xgboost_metrics:
+  filepath: data/09_tracking/xgboost_metrics.json
   type: tracking.MetricsDataset
   versioned: true
+
+train_df_transformed:
+  filepath: data/05_model_input/train_df_transformed.pkl
+  type: pickle.PickleDataset
+
+test_df_transformed:
+  filepath: data/05_model_input/test_df_transformed.pkl
+  type: pickle.PickleDataset
+# all_metrics:
+#   filepath: data/09_tracking/all_metrics.json
+#   type: tracking.MetricsDataset
+#   versioned: true
 
 returns_volume_plot:
   type: plotly.JSONDataset
@@ -230,11 +243,50 @@ xgboost_model:
   filepath: data/06_models/xgboost_model.pkl
   type: pickle.PickleDataset
 
-xgb_metrics:
-  filepath: data/09_tracking/xgb_metrics.json
-  type: tracking.MetricsDataset
-  versioned: true
-
 xgb_results_dict:
   filepath: data/07_model_output/xgb_results_dict.pkl
+  type: pickle.PickleDataset
+
+train_id_cols:
+  filepath: data/04_feature/train_id_cols.pkl
+  type: pickle.PickleDataset
+
+test_id_cols:
+  filepath: data/04_feature/test_id_cols.pkl
+  type: pickle.PickleDataset
+
+train_df_winsorized:
+  filepath: data/05_model_input/train_df_winsorized.pkl
+  type: pickle.PickleDataset
+
+test_df_winsorized:
+  filepath: data/05_model_input/test_df_winsorized.pkl
+  type: pickle.PickleDataset
+
+train_df_filtered:
+  filepath: data/05_model_input/train_df_filtered.pkl
+  type: pickle.PickleDataset
+
+test_df_filtered:
+  filepath: data/05_model_input/test_df_filtered.pkl
+  type: pickle.PickleDataset
+
+train_df_merged:
+  filepath: data/05_model_input/train_df_merged.pkl
+  type: pickle.PickleDataset
+
+test_df_merged:
+  filepath: data/05_model_input/test_df_merged.pkl
+  type: pickle.PickleDataset
+
+catboost_model:
+  filepath: data/06_models/catboost_model.pkl
+  type: pickle.PickleDataset
+
+gru_model:
+  filepath: data/06_models/gru_model.pkl
+  type: pickle.PickleDataset
+
+lightgbm_model:
+  filepath: data/06_models/lightgbm_model.pkl
   type: pickle.PickleDataset

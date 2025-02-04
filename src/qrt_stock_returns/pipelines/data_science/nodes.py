@@ -1,19 +1,33 @@
+# %%
 import logging as log
 import sys
 from itertools import compress
 from pathlib import Path
 
+import lightgbm as lgb
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
+import xgboost as xgb
+from scikeras.wrappers import KerasRegressor
 from sklearn import tree
 from sklearn.impute import KNNImputer
-from sklearn.metrics import accuracy_score, confusion_matrix
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.metrics import accuracy_score, auc, confusion_matrix, roc_curve
+from sklearn.model_selection import (
+    GridSearchCV,
+    RandomizedSearchCV,
+    StratifiedKFold,
+    cross_val_score,
+    train_test_split,
+)
 from sklearn.preprocessing import StandardScaler
+from skopt import BayesSearchCV
+from skopt.space import Integer, Real
+from tensorflow.keras.layers import GRU, Dense, Dropout
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import Adam
 from torch import nn
-
-import xgboost as xgb
 
 path = Path(__file__).parent.parent.parent.parent.parent
 sys.path.append(str(path))
@@ -22,7 +36,9 @@ from src.qrt_stock_returns.GBClassifierGridSearch import (  # noqa
     HistGBClassifierGridSearch,
 )
 from src.qrt_stock_returns.nn import Net  # noqa
-from src.qrt_stock_returns.utils import compute_roc, evaluation  # noqa
+
+logger = log.getLogger(__name__)
+logger.setLevel(log.INFO)
 
 
 def split_data(data: pd.DataFrame, parameters: dict) -> tuple:
@@ -298,7 +314,62 @@ def select_important_features(
     return X_train_selected, X_test_selected, important_features
 
 
-def model_fit(
+def evaluation(model, X: pd.DataFrame, Y: pd.Series, kfold: int):
+    """
+    Evaluate a model using k-fold cross validation and print performance metrics.
+
+    This function performs k-fold cross validation on the given model and prints the mean
+    and standard deviation of accuracy, precision and recall scores. This helps assess
+    model performance and detect potential overfitting.
+
+    Args:
+        model: A fitted sklearn model object that implements predict()
+        X (pd.DataFrame): Feature matrix
+        Y (pd.Series): Target variable
+        kfold (int): Number of folds for cross validation
+
+    Returns:
+        None: Prints cross validation metrics to log
+    """
+    # Cross Validation to test and anticipate overfitting problem
+    scores1 = cross_val_score(model, X, Y, cv=kfold, scoring="accuracy")
+    scores2 = cross_val_score(model, X, Y, cv=kfold, scoring="precision")
+    scores3 = cross_val_score(model, X, Y, cv=kfold, scoring="recall")
+    # The mean score and standard deviation of the score estimate
+    log.info(
+        f"Cross Validation Accuracy: {scores1.mean():.5f} (+/- {scores1.std():.2f})"
+    )
+    log.info(
+        f"Cross Validation Precision: {scores2.mean():.5f} (+/- {scores2.std():.2f})"
+    )
+    log.info(f"Cross Validation Recall: {scores3.mean():.5f} (+/- {scores3.std():.2f})")
+
+
+# %%
+def compute_roc(
+    Y: pd.Series, y_pred: pd.Series, plot: bool = True
+) -> tuple[float, float, float]:
+    fpr = dict()
+    tpr = dict()
+    auc_score = dict()
+    fpr, tpr, _ = roc_curve(Y, y_pred)
+    auc_score = auc(fpr, tpr)
+    if plot:
+        plt.figure(figsize=(7, 6))
+        plt.plot(fpr, tpr, color="blue", label=f"ROC curve (area = {auc_score:.2f})")
+        plt.plot([0, 1], [0, 1], color="navy", lw=3, linestyle="--")
+        plt.legend(loc="upper right")
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.0])
+        plt.title("ROC Curve")
+        plt.xlabel("False Positive Rate")
+        plt.ylabel("True Positive Rate")
+        plt.title("Receiver operating characteristic")
+        plt.show()
+    return fpr, tpr, auc_score
+
+
+def model_fit(  # noqa
     model,
     X: pd.DataFrame,
     Y: pd.Series,
@@ -324,7 +395,7 @@ def model_fit(
 
     # Print model report:
     log.info("\nModel Report")
-    log.info("Accuracy : %.4g" % accuracy_score(Y.values, predictions))
+    log.info(f"Accuracy : {accuracy_score(Y.values, predictions):.4g}")
 
     # Perform cross-validation: evaluate using 10-fold cross validation
     kfold = StratifiedKFold(n_splits=10, shuffle=True)
@@ -335,38 +406,225 @@ def model_fit(
 
 
 def train_xgboost(X_train, y_train, parameters: dict):
-    """Train XGBoost model and perform grid search CV.
-
-    Args:
-        X_train: Training features
-        y_train: Training target
-        parameters: Model parameters
-
-    Returns:
-        Trained XGBoost model
-    """
-    # Initialize XGBoost model with default parameters
+    """Train XGBoost model and perform grid search CV."""
     xgb_model = xgb.XGBClassifier(
         objective="binary:logistic",
         n_jobs=1,
-        reg_alpha=0.5,  # L1 regularization term for elastic net
-        reg_lambda=0.5,  # L2 regularization term for elastic net
-        eval_metric="logloss",  # Evaluation metric for binary classification
-        verbosity=2,  # Add verbosity to see detailed output during training
+        reg_alpha=0.5,
+        reg_lambda=0.5,
+        eval_metric="logloss",
+        verbosity=2,
+        # early_stopping_rounds=10,
+        # callbacks=[xgb.callback.EarlyStopping(rounds=10, save_best=True)]
     )
 
-    optimization_dict = {"max_depth": [2, 4, 6], "n_estimators": [50, 100, 200]}
+    optimization_dict = {
+        "max_depth": [2, 4, 6, 8],
+        "n_estimators": [50, 100, 200, 300],
+        "learning_rate": [0.01, 0.05, 0.1],
+        "min_child_weight": [1, 3, 5],
+        "gamma": [0, 0.1, 0.2],
+        "subsample": [0.8, 0.9, 1.0],
+        "colsample_bytree": [0.8, 0.9, 1.0],
+        "max_delta_step": [0, 1, 2],
+    }
+    # Common search parameters
+    SEARCH_PARAMS = {
+        "scoring": "accuracy",
+        "verbose": 3,
+        "cv": 5,
+        "random_state": 42,
+        "n_jobs": 1,
+    }
 
-    # Initialize GridSearchCV with XGBoost model
-    # model = GridSearchCV(
-    #     estimator=xgb_model,  # The base XGBoost model to optimize
-    #     param_grid=optimization_dict,  # Grid of parameters to search
-    #     scoring="accuracy",  # Metric to evaluate performance
-    #     verbose=3,  # Print training progress
-    #     cv=5,  # Number of cross-validation folds
-    # )
+    # Search space definitions
+    BAYES_SEARCH_SPACE = {
+        "max_depth": Integer(2, 8),
+        "n_estimators": Integer(50, 300),
+        "learning_rate": Real(0.01, 0.1, prior="log-uniform"),
+        "min_child_weight": Integer(1, 5),
+        "gamma": Real(0, 0.2),
+        "subsample": Real(0.8, 1.0),
+        "colsample_bytree": Real(0.8, 1.0),
+        "max_delta_step": Integer(0, 2),
+    }
 
-    # Train the model
-    xgb_model.fit(X_train, y_train)
+    def _create_search_model(search_type, xgb_model, param_space=None):
+        """Factory function to create search model based on type"""
+        search_models = {
+            "grid": lambda: GridSearchCV(
+                estimator=xgb_model, param_grid=param_space, **SEARCH_PARAMS
+            ),
+            "random": lambda: RandomizedSearchCV(
+                estimator=xgb_model,
+                param_distributions=param_space,
+                n_iter=50,
+                **SEARCH_PARAMS,
+            ),
+            "bayes": lambda: BayesSearchCV(
+                estimator=xgb_model,
+                search_spaces=BAYES_SEARCH_SPACE,
+                n_iter=50,
+                **SEARCH_PARAMS,
+            ),
+        }
 
-    return xgb_model
+        return search_models.get(search_type, search_models["bayes"])()
+
+    # Get optimization method from parameters with "grid" as default
+    optimization_method = parameters.get("optimization_method", "bayes")
+    model = _create_search_model(optimization_method, xgb_model, optimization_dict)
+    model.fit(X_train, y_train)
+
+    return model.best_estimator_
+
+
+def train_lightgbm(X_train, y_train, parameters: dict):
+    """Train LightGBM model and perform hyperparameter optimization."""
+    lgb_model = lgb.LGBMClassifier(
+        objective="binary", metric="binary_logloss", verbose=-1, random_state=42
+    )
+
+    optimization_dict = {
+        "max_depth": [2, 4, 6, 8],
+        "n_estimators": [50, 100, 200, 300],
+        "learning_rate": [0.01, 0.05, 0.1],
+        "num_leaves": [15, 31, 63],
+        "min_child_samples": [10, 20, 30],
+        "subsample": [0.8, 0.9, 1.0],
+        "colsample_bytree": [0.8, 0.9, 1.0],
+        "reg_alpha": [0, 0.1, 0.5],
+        "reg_lambda": [0, 0.1, 0.5],
+    }
+
+    # Common search parameters
+    SEARCH_PARAMS = {
+        "scoring": "accuracy",
+        "verbose": 3,
+        "cv": 5,
+        "random_state": 42,
+        "n_jobs": 1,
+    }
+
+    # Search space definitions
+    BAYES_SEARCH_SPACE = {
+        "max_depth": Integer(2, 8),
+        "n_estimators": Integer(50, 300),
+        "learning_rate": Real(0.01, 0.1, prior="log-uniform"),
+        "num_leaves": Integer(15, 63),
+        "min_child_samples": Integer(10, 30),
+        "subsample": Real(0.8, 1.0),
+        "colsample_bytree": Real(0.8, 1.0),
+        "reg_alpha": Real(0, 0.5),
+        "reg_lambda": Real(0, 0.5),
+    }
+
+    def _create_search_model(search_type, lgb_model, param_space=None):
+        """Factory function to create search model based on type"""
+        search_models = {
+            "grid": lambda: GridSearchCV(
+                estimator=lgb_model, param_grid=param_space, **SEARCH_PARAMS
+            ),
+            "random": lambda: RandomizedSearchCV(
+                estimator=lgb_model,
+                param_distributions=param_space,
+                n_iter=50,
+                **SEARCH_PARAMS,
+            ),
+            "bayes": lambda: BayesSearchCV(
+                estimator=lgb_model,
+                search_spaces=BAYES_SEARCH_SPACE,
+                n_iter=50,
+                **SEARCH_PARAMS,
+            ),
+        }
+
+        return search_models.get(search_type, search_models["bayes"])()
+
+    # Get optimization method from parameters with "grid" as default
+    optimization_method = parameters.get("optimization_method", "bayes")
+    model = _create_search_model(optimization_method, lgb_model, optimization_dict)
+    model.fit(X_train, y_train)
+
+    return model.best_estimator_
+
+
+def train_gru(X_train, y_train, parameters: dict):
+    """Train GRU model and perform hyperparameter optimization."""
+
+    def create_gru_model(units=64, dropout=0.2, learning_rate=0.001):
+        model = Sequential(
+            [
+                GRU(
+                    units=units,
+                    return_sequences=True,
+                    input_shape=(X_train.shape[1], 1),
+                ),
+                Dropout(dropout),
+                GRU(units=units // 2),
+                Dropout(dropout),
+                Dense(1),
+            ]
+        )
+        model.compile(optimizer=Adam(learning_rate=learning_rate), loss="mse")
+        return model
+
+    optimization_dict = {
+        "units": [32, 64, 128],
+        "dropout": [0.1, 0.2, 0.3],
+        "learning_rate": [0.001, 0.01, 0.1],
+        "batch_size": [32, 64, 128],
+        "epochs": [10, 20, 30],
+    }
+
+    # Common search parameters
+    SEARCH_PARAMS = {
+        "scoring": "neg_mean_squared_error",
+        "verbose": 3,
+        "cv": 5,
+        "random_state": 42,
+        "n_jobs": 1,
+    }
+
+    # Search space definitions
+    BAYES_SEARCH_SPACE = {
+        "units": Integer(32, 128),
+        "dropout": Real(0.1, 0.3),
+        "learning_rate": Real(0.001, 0.1, prior="log-uniform"),
+        "batch_size": Integer(32, 128),
+        "epochs": Integer(10, 30),
+    }
+
+    def _create_search_model(search_type, param_space=None):
+        """Factory function to create search model based on type"""
+        model_builder = KerasRegressor(build_fn=create_gru_model)
+
+        search_models = {
+            "grid": lambda: GridSearchCV(
+                estimator=model_builder, param_grid=param_space, **SEARCH_PARAMS
+            ),
+            "random": lambda: RandomizedSearchCV(
+                estimator=model_builder,
+                param_distributions=param_space,
+                n_iter=50,
+                **SEARCH_PARAMS,
+            ),
+            "bayes": lambda: BayesSearchCV(
+                estimator=model_builder,
+                search_spaces=BAYES_SEARCH_SPACE,
+                n_iter=50,
+                **SEARCH_PARAMS,
+            ),
+        }
+
+        return search_models.get(search_type, search_models["bayes"])()
+
+    # Reshape input for GRU (samples, timesteps, features)
+    X_train_reshaped = X_train.values.reshape((X_train.shape[0], X_train.shape[1], 1))
+
+    # Get optimization method from parameters with "grid" as default
+    optimization_method = parameters.get("optimization_method", "bayes")
+    model = _create_search_model(optimization_method, optimization_dict)
+    model.fit(X_train_reshaped, y_train)
+
+    return model.best_estimator_

@@ -5,7 +5,7 @@ from .nodes import (
     split_data,
     train_decision_tree,
     train_gradient_boosting,
-    train_neural_network,
+    train_lightgbm,
     train_xgboost,
     tune_decision_tree,
     tune_gradient_boosting,
@@ -17,7 +17,7 @@ def create_pipeline(**kwargs) -> Pipeline:
         [
             node(
                 func=split_data,
-                inputs=["train_df_clean", "params:model_options"],
+                inputs=["train_df_winsorized", "params:model_options"],
                 outputs=["X_train", "X_test", "y_train", "y_test"],
                 name="split_data_node",
                 tags=["data_splitting"],
@@ -43,13 +43,6 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="select_important_features_node",
             ),
             node(
-                func=train_xgboost,
-                inputs=["X_train", "y_train", "parameters"],
-                outputs="xgboost_model",
-                name="train_xgboost_node",
-                tags=["model_training", "xgboost"],
-            ),
-            node(
                 func=tune_decision_tree,
                 inputs=["X_train_selected", "y_train", "parameters"],
                 outputs="grid_dt_selected",
@@ -70,12 +63,32 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="tune_gradient_boosting_node",
                 tags=["model_tuning", "gradient_boosting"],
             ),
+            # node(
+            #     func=train_neural_network,
+            #     inputs=["X_train", "y_train", "parameters"],
+            #     outputs="nn_model",
+            #     name="train_neural_network_node",
+            #     tags=["model_training", "neural_network"],
+            # ),
             node(
-                func=train_neural_network,
+                func=train_xgboost,
                 inputs=["X_train", "y_train", "parameters"],
-                outputs="nn_model",
-                name="train_neural_network_node",
-                tags=["model_training", "neural_network"],
+                outputs="xgboost_model",
+                name="train_xgboost_node",
+                tags=["model_training", "xgboost"],
             ),
+            node(
+                func=train_lightgbm,
+                inputs=["X_train", "y_train", "parameters"],
+                outputs="lightgbm_model",
+                name="train_lightgbm_node",
+                tags=["model_training", "lightgbm"],
+            ),
+            # node(
+            #     func=train_gru,
+            #     inputs=["X_train", "y_train", "parameters"],
+            #     outputs="gru_model",
+            #     name="train_gru_node",
+            # ),
         ]
     )
