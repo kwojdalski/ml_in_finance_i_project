@@ -187,9 +187,7 @@ from IPython.display import Markdown as md
 from src.qrt_stock_returns.utils import (
     catalog,
     context,
-    get_node_idx,
-    get_node_outputs,
-    pipelines,
+    get_node_output,
     run_pipeline_node,
 )
 
@@ -265,7 +263,6 @@ kfold = conf_params["model_options"]["kfold"]
 
 # %%
 out = run_pipeline_node(
-    "data_processing",
     "load_data_node",
     {
         "x_train_raw": x_train_raw,
@@ -282,7 +279,6 @@ out = run_pipeline_node(
 
 # %%
 run_pipeline_node(
-    "reporting",
     "plot_returns_volume_node",
     {
         "train_df": out["train_df"],
@@ -334,7 +330,6 @@ out["test_df"].info()
 
 # %%
 run_pipeline_node(
-    "reporting",
     "plot_nan_percentages_node",
     {"train_df": out["train_df"]},
 )["nan_percentages_plot"]
@@ -373,7 +368,6 @@ md(
 
 # %%
 out_corr = run_pipeline_node(
-    "reporting",
     "plot_correlation_matrix_node",
     {"train_df": out["train_df"]},
 )
@@ -386,7 +380,6 @@ out_corr["correlation_matrix_plot"]
 
 # %%
 out_preprocessed = run_pipeline_node(
-    "data_processing",
     "preprocess_data_node",
     {
         "train_df": out["train_df"],
@@ -405,7 +398,6 @@ out_preprocessed = run_pipeline_node(
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     out2 = run_pipeline_node(
-        "data_processing",
         "calculate_statistical_features_node",
         {
             "train_df_preprocessed": out_preprocessed["train_df_preprocessed"],
@@ -442,7 +434,6 @@ calculate = False
 
 if calculate:
     out3 = run_pipeline_node(
-        "data_processing",
         "calculate_technical_indicators_node",
         {
             "train_df_statistical_features": out2["train_df_statistical_features"],
@@ -451,18 +442,10 @@ if calculate:
         },
     )
 else:
-    out3 = get_node_outputs(
-        pipelines["data_processing"].nodes[
-            get_node_idx(
-                pipelines["data_processing"], "calculate_technical_indicators_node"
-            )
-        ],
-        catalog,
-    )
+    out3 = get_node_output("calculate_technical_indicators_node")
 
 # %%
 out_merged = run_pipeline_node(
-    "data_processing",
     "merge_with_features_node",
     {
         "train_df_preprocessed": out_preprocessed["train_df"],
@@ -490,7 +473,6 @@ out_merged = run_pipeline_node(
 
 # %%
 out4 = run_pipeline_node(
-    "data_processing",
     "retrieve_id_cols_node",
     {
         "train_df": out_preprocessed["train_df"],
@@ -499,7 +481,6 @@ out4 = run_pipeline_node(
 )
 # %%
 out4 = run_pipeline_node(
-    "data_processing",
     "drop_id_cols_node",
     {
         "train_ta_indicators": out3["train_ta_indicators"],
@@ -525,7 +506,6 @@ out4 = run_pipeline_node(
 
 # %%
 out5 = run_pipeline_node(
-    "data_processing",
     "drop_obsolete_technical_indicators_node",
     {
         "train_ta_indicators_dropped": out4["train_ta_indicators_dropped"],
@@ -544,7 +524,6 @@ out5 = run_pipeline_node(
 
 # %%
 out6 = run_pipeline_node(
-    "data_processing",
     "filter_infinity_values_node",
     {
         "train_df_technical_indicators": out5["train_df_technical_indicators"],
@@ -570,7 +549,6 @@ out6 = run_pipeline_node(
 # %%
 # Remove duplicated columns and handle NaN values
 out7 = run_pipeline_node(
-    "data_processing",
     "remove_duplicates_and_nans_node",
     {
         "train_df_filtered": out6["train_df_filtered"],

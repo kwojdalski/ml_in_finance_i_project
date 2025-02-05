@@ -56,19 +56,24 @@ def get_node_names(pipeline):
     return [node.name for node in pipeline.nodes]
 
 
-def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
+def run_pipeline_node(node_name: str, inputs: dict):
     """Run a specific node from a pipeline.
 
     Args:
-        pipeline_name: Name of the pipeline
         node_name: Name of the node to run
         inputs: Dictionary of input parameters for the node
 
     Returns:
         Output from running the node
     """
-    node_idx = get_node_idx(pipelines[pipeline_name], node_name)
-    return pipelines[pipeline_name].nodes[node_idx].run(inputs)
+    for pipeline in pipelines.keys():
+        try:
+            node_idx = get_node_idx(pipelines[pipeline], node_name)
+            return pipelines[pipeline].nodes[node_idx].run(inputs)
+        except Exception:
+            continue
+
+    raise ValueError(f"Node {node_name} not found in any pipeline")
 
 
 def _handle_dataframe_io(filepath: str, df=None, mode="read"):
@@ -171,18 +176,16 @@ def get_node_outputs(node, catalog):
     return output_dict
 
 
-# %%
-def run_pipeline_node(pipeline_name: str, node_name: str, inputs: dict):
-    """
-    Executes a specific node within the data processing pipeline.
-
-    Parameters:
-        pipeline_name (str): Target pipeline identifier
-        node_name (str): Specific node to execute
-        inputs (dict): Node input parameters
-
-    Returns:
-        Output from node execution
-    """
-    node_idx = get_node_idx(pipelines[pipeline_name], node_name)
-    return pipelines[pipeline_name].nodes[node_idx].run(inputs)
+def get_node_output(node_name: str):
+    """Get outputs from a specific node in the data processing pipeline."""
+    for pipeline in pipelines.keys():
+        try:
+            ret = get_node_outputs(
+                pipelines[pipeline].nodes[get_node_idx(pipelines[pipeline], node_name)],
+                catalog=catalog,
+            )
+            return ret
+        except Exception:
+            # log.info(f"Error getting node output for {pipeline} {node_name}: {e}")
+            continue
+    return ret

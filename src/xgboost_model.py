@@ -5,14 +5,7 @@ import pickle
 import pandas as pd
 
 from src.qrt_stock_returns.pipelines.reporting.nodes import plot_outliers_analysis
-from src.qrt_stock_returns.utils import (
-    catalog,
-    conf_params,
-    get_node_idx,
-    get_node_outputs,
-    pipelines,
-    run_pipeline_node,
-)
+from src.qrt_stock_returns.utils import conf_params, get_node_output, run_pipeline_node
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
@@ -27,39 +20,15 @@ target = conf_params["model_options"]["target"]
 kfold = conf_params["model_options"]["kfold"]
 # %%
 
-out10 = get_node_outputs(
-    pipelines["data_processing"].nodes[
-        get_node_idx(pipelines["data_processing"], "handle_outliers_node")
-    ],
-    catalog,
-)
-
 
 # %%
-def get_node_output(node_name: str):
-    """Get outputs from a specific node in the data processing pipeline."""
-    for pipeline in pipelines.keys():
-        try:
-            ret = get_node_outputs(
-                pipelines[pipeline].nodes[get_node_idx(pipelines[pipeline], node_name)],
-                catalog,
-            )
-            return ret
-        except Exception:
-            # log.info(f"Error getting node output for {pipeline} {node_name}: {e}")
-            continue
-    return ret
-
-
 out10 = get_node_output("handle_outliers_node")
-
 
 # %%
 # %% [markdown]
 # ## Split Data into Training and Test Sets
 # %%
 out11 = run_pipeline_node(
-    "data_science",
     "split_data_node",
     {
         "train_df_winsorized": out10["train_df_winsorized"],
@@ -80,7 +49,6 @@ plot_outliers_analysis(X_train)
 
 # %%
 out10 = run_pipeline_node(
-    "data_science",
     "train_xgboost_node",
     {
         "X_train": X_train,
@@ -92,11 +60,6 @@ out10 = run_pipeline_node(
 # %%
 # get_node_outputs(
 #     pipelines["data_science"].nodes[
-#         get_node_idx(pipelines["data_science"], "train_xgboost_node")
-#     ],
-#     catalog,
-# )
-# %% [markdown]
 # ## Load Models
 # %%
 with open("data/06_models/xgboost_model.pkl", "rb") as f:
@@ -119,7 +82,6 @@ for idx, row in importance_df[:20].iterrows():
 
 # %%
 run_pipeline_node(
-    "reporting",
     "evaluate_xgboost_node",
     {
         "xgboost_model": model,
@@ -131,7 +93,6 @@ run_pipeline_node(
 
 # %%
 out11 = run_pipeline_node(
-    "reporting",
     "generate_predictions_node",
     {
         # "xgboost_model": out10["xgboost_model"],

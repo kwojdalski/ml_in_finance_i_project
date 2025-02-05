@@ -24,14 +24,7 @@ import torch
 from sklearn.metrics import classification_report
 
 from src.qrt_stock_returns.pipelines.data_science.nodes import model_fit
-from src.qrt_stock_returns.utils import (
-    catalog,
-    conf_params,
-    get_node_idx,
-    get_node_outputs,
-    pipelines,
-    run_pipeline_node,
-)
+from src.qrt_stock_returns.utils import conf_params, get_node_output, run_pipeline_node
 
 # %% [markdown]
 # ### Loading Up Kedro Config
@@ -45,12 +38,7 @@ kfold = conf_params["model_options"]["kfold"]
 # %% [markdown]
 # ### Getting Data from the Data Processing Pipeline
 # %%
-out9 = get_node_outputs(
-    pipelines["data_processing"].nodes[
-        get_node_idx(pipelines["data_processing"], "remove_duplicates_and_nans_node")
-    ],
-    catalog,
-)
+out9 = get_node_output("remove_duplicates_and_nans_node")
 
 # %%
 # ### Check Data
@@ -60,7 +48,6 @@ out9["train_df_clean"].info()
 # ## Split Data into Training and Test Sets
 # %%
 out10 = run_pipeline_node(
-    "data_science",
     "split_data_node",
     {
         "train_df_clean": out9["train_df_clean"],
@@ -77,7 +64,6 @@ y_test = out10["y_test"]
 # ## Basic Decision Tree Model
 # %%
 base_dt = run_pipeline_node(
-    "data_science",
     "train_decision_tree_node",
     {
         "X_train": X_train,
@@ -103,7 +89,6 @@ log.info(f"Accuracy on test set: {base_dt['model'].score(X_test, y_test):.3f}")
 
 # %%
 tuned_dt = run_pipeline_node(
-    "data_science",
     "tune_decision_tree_node",
     {
         "X_train": X_train,
@@ -119,7 +104,6 @@ tuned_dt = run_pipeline_node(
 # ## Visualize Feature Importance
 # %%
 run_pipeline_node(
-    "reporting",
     "plot_feature_importance_node",
     {
         "grid_dt": tuned_dt,
@@ -134,7 +118,6 @@ run_pipeline_node(
 # **Filtering Out Features with Less Than 1% of Feature Importance**
 # %%
 out12 = run_pipeline_node(
-    "data_science",
     "select_important_features_node",
     {
         "X_train": X_train,
@@ -152,7 +135,6 @@ important_features = out12["important_features"]
 # New sets with only the selected features
 # %%
 grid_dt = run_pipeline_node(
-    "data_science",
     "tune_decision_tree_selected_node",
     {
         "X_train_selected": X_train_selected,
@@ -197,7 +179,6 @@ log.info(f"{prediction}")
 
 # %%
 gbm_classifier = run_pipeline_node(
-    "data_science",
     "train_gradient_boosting_node",
     {
         "X_train_selected": X_train_selected,
@@ -233,7 +214,6 @@ model_fit(
 
 # %%
 tuned_gb = run_pipeline_node(
-    "data_science",
     "tune_gradient_boosting_node",
     {
         "base_gb": gbm_classifier,
@@ -300,7 +280,6 @@ model_fit(
 # ### Running the Model
 # %%
 nn_model = run_pipeline_node(
-    "data_science",
     "train_neural_network_node",
     {
         "X_train": X_train,
@@ -323,7 +302,6 @@ print(classification_report(y_test_tensor, y_predict, digits=5))
 # Convert model results to DataFrame for plotting
 # %%
 model_results = run_pipeline_node(
-    "reporting",
     "aggregate_model_results_node",
     {
         "base_dt": base_dt,
@@ -340,7 +318,6 @@ model_results = run_pipeline_node(
 
 # %%
 run_pipeline_node(
-    "reporting",
     "plot_model_accuracy_node",
     {
         "model_results": model_results,
@@ -366,7 +343,6 @@ run_pipeline_node(
 # %% [markdown]
 # Run Simulation
 # run_pipeline_node(
-#     "reporting",
 #     "simulate_strategy_node",
 #     {
 #         "y_test": y_test,
