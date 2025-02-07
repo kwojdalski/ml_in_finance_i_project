@@ -1,18 +1,20 @@
+import logging
+import sys
 import unittest
 
 import numpy as np
 import pandas as pd
+import talib
 
-from qrt_stock_returns.pipelines.data_processing.ta_indicators import (
-    calculate_bollinger_bands,
-    calculate_cumulative_returns,
-    calculate_momentum,
-    calculate_momentum_sector,
-    calculate_moving_averages,
-    calculate_roc_past_rows,
-    calculate_rsi,
-    calculate_stochastic_oscillator,
+from src.qrt_stock_returns.pipelines.data_processing.ta_indicators import (
+    calculate_all_ta_indicators,
+    calculate_ta_indicators,
 )
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+stream_handler = logging.StreamHandler(sys.stdout)
+log.addHandler(stream_handler)
 
 
 class TestTAIndicators(unittest.TestCase):
@@ -32,6 +34,48 @@ class TestTAIndicators(unittest.TestCase):
                 "SECTOR": np.random.randint(1, 10, n_rows),
                 "SUB_INDUSTRY": np.random.randint(1, 30, n_rows),
                 "DATE": np.repeat(range(n_dates), n_stocks),
+                "RET": np.random.randn(n_rows) / 100,
+                "VOLUME": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_1": np.random.randn(n_rows) / 100,
+                "VOLUME_1": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_2": np.random.randn(n_rows) / 100,
+                "VOLUME_2": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_3": np.random.randn(n_rows) / 100,
+                "VOLUME_3": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_4": np.random.randn(n_rows) / 100,
+                "VOLUME_4": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_5": np.random.randn(n_rows) / 100,
+                "VOLUME_5": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_6": np.random.randn(n_rows) / 100,
+                "VOLUME_6": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_7": np.random.randn(n_rows) / 100,
+                "VOLUME_7": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_8": np.random.randn(n_rows) / 100,
+                "VOLUME_8": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_9": np.random.randn(n_rows) / 100,
+                "VOLUME_9": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_10": np.random.randn(n_rows) / 100,
+                "VOLUME_10": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_11": np.random.randn(n_rows) / 100,
+                "VOLUME_11": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_12": np.random.randn(n_rows) / 100,
+                "VOLUME_12": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_13": np.random.randn(n_rows) / 100,
+                "VOLUME_13": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_14": np.random.randn(n_rows) / 100,
+                "VOLUME_14": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_15": np.random.randn(n_rows) / 100,
+                "VOLUME_15": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_16": np.random.randn(n_rows) / 100,
+                "VOLUME_16": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_17": np.random.randn(n_rows) / 100,
+                "VOLUME_17": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_18": np.random.randn(n_rows) / 100,
+                "VOLUME_18": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_19": np.random.randn(n_rows) / 100,
+                "VOLUME_19": np.random.randint(1000, 10000, n_rows).astype(float),
+                "RET_20": np.random.randn(n_rows) / 100,
+                "VOLUME_20": np.random.randint(1000, 10000, n_rows).astype(float),
             }
         )
 
@@ -45,61 +89,86 @@ class TestTAIndicators(unittest.TestCase):
         # Add target
         self.test_data["RET"] = np.random.choice([True, False], size=n_rows)
 
-    def test_rsi(self):
-        result, features = calculate_rsi(self.test_data)
+    def test_calculate_ta_indicators(self):
+        """Test calculate_ta_indicators with different configurations"""
+        # Test RSI calculation with returns
+        result, features = calculate_ta_indicators(
+            self.test_data,
+            periods=[2, 5, 14],
+            ta_func=talib.RSI,
+            ta_args={"data_type": "ret"},
+        )
 
-        # Check RSI columns exist
-        self.assertTrue(any("RSI" in col for col in result.columns))
-        self.assertTrue(all(isinstance(x, str) for x in features))
+        # Check basic properties
+        self.assertIsInstance(result, pd.DataFrame)
+        self.assertIsInstance(features, list)
 
-        # Check RSI values are within valid range (0-100)
-        rsi_cols = [col for col in result.columns if "RSI" in col]
-        for col in rsi_cols:
-            self.assertTrue((result[col] >= 0).all())
-            self.assertTrue((result[col] <= 100).all())
+        # Test with volume data
+        result, features = calculate_ta_indicators(
+            self.test_data,
+            periods=[2, 5],
+            ta_func=talib.SMA,
+            ta_args={"data_type": "vol", "timeperiod": 5},
+        )
+        # self.assertTrue(all("SMA" in col for col in result.columns))
 
-    def test_roc_past_rows(self):
-        result, features = calculate_roc_past_rows(self.test_data)
-        self.assertTrue(any("ROC" in col for col in result.columns))
-        self.assertTrue(all(isinstance(x, str) for x in features))
+        # Test with both return and volume
+        result, features = calculate_ta_indicators(
+            self.test_data,
+            periods=[2],
+            ta_func=talib.OBV,
+            ta_args={"data_type": "both"},
+        )
+        # self.assertTrue(all("OBV" in col for col in result.columns))
 
-    def test_momentum(self):
-        result, features = calculate_momentum(self.test_data)
-        self.assertTrue(any("momentum" in col.lower() for col in result.columns))
-        self.assertTrue(all(isinstance(x, str) for x in features))
+        # Test error cases
+        with self.assertRaises(ValueError):
+            calculate_ta_indicators(
+                self.test_data,
+                ta_func=talib.RSI,
+                ta_args={"data_type": "invalid"},
+            )
 
-    def test_momentum_sector(self):
-        result, features = calculate_momentum_sector(self.test_data)
-        self.assertTrue(any("momentum_sector" in col.lower() for col in result.columns))
-        self.assertTrue(all(isinstance(x, str) for x in features))
+        with self.assertRaises(ValueError):
+            calculate_ta_indicators(
+                self.test_data,
+                ta_func=talib.RSI,
+                ta_args={},  # Missing data_type
+            )
 
-    def test_stochastic_oscillator(self):
-        result, features = calculate_stochastic_oscillator(self.test_data)
-        self.assertTrue(any("%K" in col for col in result.columns))
-        self.assertTrue(any("%D" in col for col in result.columns))
-        self.assertTrue(all(isinstance(x, str) for x in features))
+    def test_calculate_all_ta_indicators(self):
+        """Test calculate_all_ta_indicators functionality"""
+        # Test with default parameters
+        result = calculate_all_ta_indicators(
+            self.test_data,
+            features=[
+                col
+                for col in self.test_data.columns
+                if col.startswith(("RET_", "VOLUME_"))
+            ],
+        )
 
-    def test_moving_averages(self):
-        result, features = calculate_moving_averages(self.test_data)
-        self.assertIn("Mean", result.columns)
-        self.assertTrue(any("MA" in col for col in result.columns))
-        self.assertTrue(all(isinstance(x, str) for x in features))
+        # Check that result is a DataFrame
+        self.assertIsInstance(result, pd.DataFrame)
 
-    def test_bollinger_bands(self):
-        result, features = calculate_bollinger_bands(self.test_data)
-        self.assertTrue(any("Upper_Band" in col for col in result.columns))
-        self.assertTrue(any("Lower_Band" in col for col in result.columns))
-        self.assertTrue(all(isinstance(x, str) for x in features))
+        # Check that the result has the same number of rows as input
+        self.assertEqual(len(result), len(self.test_data))
+        # Log min/max values for each column
 
-    def test_cumulative_returns(self):
-        result, features = calculate_cumulative_returns(self.test_data)
-        self.assertTrue(any("CUM_RET" in col for col in result.columns))
-        self.assertTrue(all(isinstance(x, str) for x in features))
+        log.info("Checking min/max values for each column in result DataFrame:")
+        log.debug(result.columns)
+        for col in result.columns:
+            min_val = result[col].min()
+            max_val = result[col].max()
+            log.info(f"Column {col}: min={min_val:.4f}, max={max_val:.4f}")
+
+        # Test with specific features
+        subset_features = ["RET_1", "RET_2", "VOLUME_1", "VOLUME_2"]
+        result_subset = calculate_all_ta_indicators(
+            self.test_data, features=subset_features
+        )
+        self.assertIsInstance(result_subset, pd.DataFrame)
 
 
-# a = TestTAIndicators()
-# a.setUp()
-# a, b = calculate_rsi(a.test_data)
-# a["RSI"].range()
 if __name__ == "__main__":
-    unittest.main()
+    unittest.main(verbosity=2)

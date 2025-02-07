@@ -73,7 +73,9 @@ def run_pipeline_node(node_name: str, inputs: dict):
         except Exception:
             continue
 
-    raise ValueError(f"Node {node_name} not found in any pipeline")
+    raise ValueError(
+        f"Node {node_name} not found in any pipeline (could be something else)"
+    )
 
 
 def _handle_dataframe_io(filepath: str, df=None, mode="read"):

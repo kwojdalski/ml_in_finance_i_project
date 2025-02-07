@@ -8,8 +8,17 @@
             "name": "Python Debugger: Current File",
             "type": "debugpy",
             "request": "launch",
+            // Specifies which file to debug - ${file} is a VS Code variable that represents
+            // the currently active file in the editor. This means the debugger will run
+            // whatever file you have open and selected when you start debugging.
             "program": "${file}",
-            "console": "integratedTerminal"
+            // Add the workspace folder to Python path so imports work correctly
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}${pathSeparator}${env:PYTHONPATH}"
+            },
+            // "console": "integratedTerminal",
+            "console": "internalConsole",
+            "cwd": "${workspaceFolder}",
         },
         {
             "name": "Python: Kedro Run",

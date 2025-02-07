@@ -9,7 +9,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.experimental import enable_iterative_imputer  # noqa
 from sklearn.feature_selection import mutual_info_regression
 from sklearn.impute import IterativeImputer, KNNImputer
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, PowerTransformer
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from src.qrt_stock_returns.pipelines.data_processing.ta_indicators import (
@@ -660,17 +660,20 @@ def transform_volret_features(
     if test_df is not None:
         test_df = test_df.copy()
 
-    volret_cols = [
-        col
-        for col in train_df.columns
-        if col.startswith("VOLUME") or col.startswith("RET")
-    ]
+    ret_cols = [col for col in train_df.columns if col.startswith("RET")]
     # Exclude target column if present
-    volret_cols = [col for col in volret_cols if col != "RET"]
+    ret_cols = [col for col in ret_cols if col != "RET"]
     log.info("Excluded target column 'RET' from transformation")
-    for col in volret_cols:
-        train_df[col] = np.log1p(train_df[col])
-        if test_df is not None:
-            test_df[col] = np.log1p(test_df[col])
+    train_df[ret_cols] = np.log1p(train_df[ret_cols])
+    if test_df is not None:
+        test_df[ret_cols] = np.log1p(test_df[ret_cols])
+
+    # Apply Yeo-Johnson transformation to volume features
+    volume_cols = [col for col in train_df.columns if col.startswith("VOLUME")]
+    pt = PowerTransformer(method="yeo-johnson")
+    log.debug(f"Fitting PowerTransformer to {volume_cols}")
+    train_df[volume_cols] = pt.fit_transform(train_df[volume_cols])
+    if test_df is not None:
+        test_df[volume_cols] = pt.transform(test_df[volume_cols])
 
     return train_df, test_df

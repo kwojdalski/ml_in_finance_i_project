@@ -67,7 +67,7 @@ feature_processing:
   scaling_method: "standard"
   train_test_split:
     test_size: 0.2
-    random_state: 42
+#    random_state: 42
 
 # Model Input Preparation Node Parameters
 model_input:
@@ -189,5 +189,5 @@ corr_threshold: 0.95
 mi_threshold: 0.001
 vif_threshold: 10
 
-outlier_threshold: 3
-outlier_method: "winsorize"
+outlier_threshold: 10
+outlier_method: "clip"

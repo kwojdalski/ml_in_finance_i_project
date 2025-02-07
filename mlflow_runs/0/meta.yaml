@@ -1,6 +1,6 @@
-artifact_location: mlflow-artifacts:/0
-creation_time: 1738351752545
+artifact_location: file:///Users/krzysztofwojdalski/github_projects/qrt-stock-returns/mlflow_runs/0
+creation_time: 1738870342388
 experiment_id: '0'
-last_update_time: 1738351752545
+last_update_time: 1738870342388
 lifecycle_stage: active
 name: Default

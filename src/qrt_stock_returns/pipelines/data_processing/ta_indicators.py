@@ -32,6 +32,8 @@ def calculate_ta_indicators(  # noqa
     data_type = ta_args.pop(
         "data_type"
     )  # Remove data_type from ta_args after getting it
+    add_one = ta_args.pop("add_one", False)
+    cum = ta_args.pop("cum", False)
     if data_type not in ["ret", "vol", "both"]:
         raise ValueError("data_type must be one of: 'ret', 'vol', 'both'")
 
@@ -45,6 +47,11 @@ def calculate_ta_indicators(  # noqa
 
     if data_type in ["ret", "both"] and ret_columns:
         ret_df = df[ret_columns[::-1]].transpose()
+        if add_one:
+            ret_df = ret_df + 1
+            if cum:
+                ret_df = ret_df[::-1].cumprod()[::-1]
+
     if data_type in ["vol", "both"] and vol_columns:
         vol_df = df[vol_columns[::-1]].transpose()
 
@@ -55,7 +62,7 @@ def calculate_ta_indicators(  # noqa
     func_name = ta_func.__name__
 
     # Process based on data_type
-    def process_indicator(df_input, is_combined=False):
+    def _process_indicator(df_input, is_combined=False):
         if is_combined:
             indicator = (
                 df_input[0]
@@ -78,16 +85,16 @@ def calculate_ta_indicators(  # noqa
 
     if data_type == "ret" and not ret_df.empty:
         for period in periods:
-            results = pd.concat([results, process_indicator(ret_df)], axis=1)
+            results = pd.concat([results, _process_indicator(ret_df)], axis=1)
 
     elif data_type == "vol" and not vol_df.empty:
         for period in periods:
-            results = pd.concat([results, process_indicator(vol_df)], axis=1)
+            results = pd.concat([results, _process_indicator(vol_df)], axis=1)
 
     elif data_type == "both" and not ret_df.empty and not vol_df.empty:
         for period in periods:
             results = pd.concat(
-                [results, process_indicator((ret_df, vol_df), True)], axis=1
+                [results, _process_indicator((ret_df, vol_df), True)], axis=1
             )
 
     if remove_nan:
@@ -111,15 +118,21 @@ def calculate_all_ta_indicators(df, features=None):
         pd.DataFrame: DataFrame containing all calculated technical indicators
     """
     all_features = [
-        (talib.OBV, {"data_type": "both"}),
-        (talib.RSI, {"data_type": "ret"}),
-        (talib.MOM, {"timeperiod": 5, "data_type": "ret"}),
-        (talib.ROCR, {"timeperiod": 5, "data_type": "ret"}),
-        (talib.CMO, {"timeperiod": 14, "data_type": "ret"}),
-        (talib.EMA, {"timeperiod": 5, "data_type": "ret"}),
-        (talib.SMA, {"timeperiod": 5, "data_type": "ret"}),
-        (talib.WMA, {"timeperiod": 5, "data_type": "ret"}),
-        (talib.MIDPOINT, {"timeperiod": 10, "data_type": "ret"}),
+        (talib.OBV, {"data_type": "both", "add_one": True}),
+        (talib.RSI, {"data_type": "ret", "add_one": True, "cum": True}),
+        (
+            talib.MOM,
+            {"timeperiod": 5, "data_type": "ret", "add_one": True, "cum": True},
+        ),
+        (
+            talib.ROCR,
+            {"timeperiod": 5, "data_type": "ret", "add_one": True, "cum": True},
+        ),
+        (talib.CMO, {"timeperiod": 14, "data_type": "ret", "add_one": True}),
+        (talib.EMA, {"timeperiod": 5, "data_type": "ret", "add_one": True}),
+        (talib.SMA, {"timeperiod": 5, "data_type": "ret", "add_one": True}),
+        (talib.WMA, {"timeperiod": 5, "data_type": "ret", "add_one": True}),
+        (talib.MIDPOINT, {"timeperiod": 10, "data_type": "ret", "add_one": True}),
     ]
 
     ta_indicators_df = pd.concat(

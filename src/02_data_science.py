@@ -296,7 +296,7 @@ with torch.no_grad():
     y_predict = (outputs >= 0.5).squeeze().numpy()
 
 # y_predict.to_csv("data/07_model_output/y_predict.csv", index=False)
-print(classification_report(y_test_tensor, y_predict, digits=5))
+log.info(classification_report(y_test_tensor, y_predict, digits=5))
 # %% [markdown]
 # ## Model Comparison Plot
 # Convert model results to DataFrame for plotting

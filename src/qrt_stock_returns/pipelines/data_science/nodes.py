@@ -415,6 +415,7 @@ def train_xgboost(X_train, y_train, parameters: dict):
         eval_metric="logloss",
         verbosity=2,
         # early_stopping_rounds=10,
+        # tree_method="gpu_hist",
         # callbacks=[xgb.callback.EarlyStopping(rounds=10, save_best=True)]
     )
 
