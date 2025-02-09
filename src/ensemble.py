@@ -1,5 +1,6 @@
 # %%
 import functools
+import inspect
 import logging
 import os
 import random
@@ -22,7 +23,6 @@ warnings.filterwarnings("ignore")
 
 # %%
 
-
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 log.info("Starting XGBoost")
@@ -34,7 +34,7 @@ log.info("Starting XGBoost")
 
 
 # %%
-def seed_everything(seed: int = 42) -> None:
+def seed_everything(seed: int = 42):
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
     np.random.seed(seed)
@@ -47,19 +47,20 @@ seed_everything()
 class Config:
     DATA_DIR: str = "data"
     L1_N_TRIALS: int = 1
-    L2_N_TRIALS: int = 20
+    L2_N_TRIALS: int = 100
     N_JOBS: int = 2
+    OPTUNA_STORAGE: str = "sqlite:///db.sqlite3"
 
     MODELS: dict[str, str] = {
-        "lr": "Logistic Regression",
-        "ada": "AdaBoost",
-        "rf": "Random Forest",
+        # "lr": "Logistic Regression",
+        # "ada": "AdaBoost",
+        # "rf": "Random Forest",
         "xgb": "XGBoost",
         "lgb": "LightGBM",
     }
 
     @classmethod
-    def filepath(cls, filename: str) -> str:
+    def filepath(cls, filename: str):
         return os.path.join(cls.DATA_DIR, filename)
 
 
@@ -85,7 +86,7 @@ class LRConfig:
         X_val: pd.DataFrame,
         y_val: pd.Series,
         params: dict[str, Any],
-    ) -> dict[str, Any]:
+    ):
         return {}
 
 
@@ -107,7 +108,7 @@ class AdaConfig:
         X_val: pd.DataFrame,
         y_val: pd.Series,
         params: dict[str, Any],
-    ) -> dict[str, Any]:
+    ):
         return {}
 
 
@@ -138,7 +139,7 @@ class RFConfig:
         X_val: pd.DataFrame,
         y_val: pd.Series,
         params: dict[str, Any],
-    ) -> dict[str, Any]:
+    ):
         return {}
 
 
@@ -155,12 +156,11 @@ class XGBConfig:
         "colsample_bytree": 1.0,
         "colsample_bylevel": 1.0,
         "min_child_weight": 1.0,
-        "sampling_method": "uniform",
         "early_stopping_rounds": None,
     }
 
     STATIC_PARAMS: dict[str, Union[str, bool, int]] = {
-        "tree_method": "gpu_hist",
+        "tree_method": "hist",
         "use_label_encoder": False,
         "n_jobs": Config.N_JOBS,
         "predictor": "gpu_predictor",
@@ -178,7 +178,7 @@ class XGBConfig:
         X_val: pd.DataFrame,
         y_val: pd.Series,
         params: dict[str, Any],
-    ) -> dict[str, Any]:
+    ):
         return {
             "eval_set": [(X_train, y_train), (X_val, y_val)],
             "verbose": False,
@@ -214,7 +214,7 @@ class LGBConfig:
         X_val: pd.DataFrame,
         y_val: pd.Series,
         params: dict[str, Any],
-    ) -> dict[str, Any]:
+    ):
         callbacks = params.get("callbacks", []) + [lgb.log_evaluation(period=0)]
         return {
             "eval_set": [(X_train, y_train), (X_val, y_val)],
@@ -251,7 +251,7 @@ def train(  # noqa
     model: str,
     params: dict[str, Any],
     verbose: bool = True,
-) -> tuple[np.ndarray, np.ndarray, float]:  # noqa
+):
     klass = MODEL_MAP[model]
     config = CONFIG_MAP[model]
 
@@ -290,7 +290,7 @@ def lr_objective(
     X_test: pd.DataFrame,
     y_train: pd.Series,
     y_test: pd.Series,
-) -> float:
+):
     params = {
         "tol": trial.suggest_float("tol", 1e-6, 1e-4, log=True),
         "C": trial.suggest_float("C", 0.5, 2.0, log=True),
@@ -318,7 +318,7 @@ def adaboost_objective(
     X_test: pd.DataFrame,
     y_train: pd.Series,
     y_test: pd.Series,
-) -> float:
+):
     params = {
         "n_estimators": trial.suggest_int("n_estimators", 50, 500, log=True),
         "learning_rate": trial.suggest_float("learning_rate", 0.1, 5.0, log=True),
@@ -358,7 +358,7 @@ def rf_objective(
     X_test: pd.DataFrame,
     y_train: pd.Series,
     y_test: pd.Series,
-) -> float:
+):
     params = {
         "n_estimators": trial.suggest_int("n_estimators", 1, 500),
         "max_depth": trial.suggest_int("max_depth", 1, 50),
@@ -393,19 +393,25 @@ def xgb_objective(
     X_test: pd.DataFrame,
     y_train: pd.Series,
     y_test: pd.Series,
-) -> float:
+):
     params = {
-        "max_depth": trial.suggest_int("max_depth", 1, 11),
-        "n_estimators": trial.suggest_int("n_estimators", 5, 500),
-        "alpha": trial.suggest_uniform("alpha", 0.0, 5.0),
-        "lambda": trial.suggest_float("lambda", 1.0, 5.0, log=True),
-        "learning_rate": trial.suggest_float("learning_rate", 0.03, 0.8, log=True),
-        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.2, 1.0),
+        "objective": "binary:logistic",
+        "eval_metric": "logloss",
+        "n_jobs": 1,
+        "verbosity": 2,
+        "max_depth": trial.suggest_int("max_depth", 2, 8),
+        "n_estimators": trial.suggest_int("n_estimators", 50, 300),
+        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+        # "learning_rate": 0.3,
+        "min_child_weight": trial.suggest_int("min_child_weight", 1, 5),
+        "gamma": trial.suggest_float("gamma", 0, 0.2),
+        "subsample": trial.suggest_float("subsample", 0.8, 1.0),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.8, 1.0),
+        "max_delta_step": trial.suggest_int("max_delta_step", 0, 2),
+        "reg_alpha": trial.suggest_float("reg_alpha", 0, 0.5),
+        "reg_lambda": trial.suggest_float("reg_lambda", 0, 0.5),
+        "random_state": 42,
         "colsample_bylevel": trial.suggest_float("colsample_bylevel", 0.2, 1.0),
-        "min_child_weight": trial.suggest_uniform("min_child_weight", 1, 100),
-        "sampling_method": trial.suggest_categorical(
-            "sampling_method", ["uniform", "gradient_based"]
-        ),
         "early_stopping_rounds": trial.suggest_int(
             "early_stopping_rounds", 5, 20, step=5
         ),
@@ -433,7 +439,7 @@ def lgb_objective(
     X_test: pd.DataFrame,
     y_train: pd.Series,
     y_test: pd.Series,
-) -> float:
+):
     params = {
         "num_leaves": trial.suggest_int("num_leaves", 31, 100, log=True),
         "max_depth": trial.suggest_int("max_depth", 1, 100, log=True),
@@ -443,6 +449,9 @@ def lgb_objective(
         "reg_lambda": trial.suggest_float("reg_lambda", 0.0, 5.0),
         "min_child_samples": trial.suggest_int("min_child_samples", 20, 50, log=True),
         "subsample_for_bin": trial.suggest_int("subsample_for_bin", 2000, 8000),
+        "subsample": trial.suggest_float("subsample", 0.5, 1.0),
+        "colsample_bytree": trial.suggest_float("colsample_bytree", 0.5, 1.0),
+        "min_split_gain": trial.suggest_float("min_split_gain", 0.0, 1.0),
     }
 
     params["callbacks"] = [
@@ -478,7 +487,23 @@ def hyperparameter_search(  # noqa
     y_test: pd.Series,
     model: str,
     n_trials: int = Config.L1_N_TRIALS,
-) -> dict[str, Any]:
+):
+    # Check if function is being called from parent frame
+    frame = inspect.currentframe()
+    if frame is not None:
+        caller = frame.f_back
+        if caller is not None:
+            caller_name = caller.f_code.co_name
+            log.info(f"Caller name: {caller_name}")
+            if caller_name not in ["fit_level_one_models", "fit_level_two_model"]:
+                raise RuntimeError(
+                    "This function should only be called from fit_level_one_models or fit_level_two_model"
+                )
+            if caller_name == "fit_level_two_model":
+                study_name = self.level_two_study_name
+            else:
+                study_name = f"ensemble_{model}"
+
     v = optuna.logging.get_verbosity()
     optuna.logging.set_verbosity(optuna.logging.WARNING)
 
@@ -495,8 +520,8 @@ def hyperparameter_search(  # noqa
 
     sampler = optuna.samplers.TPESampler(seed=42)
     study = optuna.create_study(
-        storage="sqlite:///db.sqlite3",  # Specify the storage URL here.
-        study_name=f"ensemble_{model}",
+        storage=Config.OPTUNA_STORAGE,  # Specify the storage URL here.
+        study_name=study_name,
         direction="maximize",
         load_if_exists=True,
         pruner=pruner,
@@ -524,6 +549,12 @@ class Ensemble:
         self.X_test = X_test
         self.y_train = y_train
         self.y_test = y_test
+        self.level_two_study_name = (
+            f"ensemble_lr_l2_{'_'.join(Config.MODELS.keys())}"  # for now only lr
+        )
+        self.level_one_study_names = {
+            model: f"ensemble_l1_{model}" for model in Config.MODELS.keys()
+        }
 
         models = Config.MODELS.keys()
 
@@ -537,69 +568,235 @@ class Ensemble:
         self.meta_train_df = pd.DataFrame(index=X_train.index)
         self.meta_test_df = pd.DataFrame(index=X_test.index)
 
-    def fit_level_one_models(self) -> None:
+        # Add storage for trained models
+        self.level_one_models = {}
+        self.level_two_model = None
+        self.level_one_params = {}
+        self.level_two_params = None
+
+    def fit_level_one_models(self, search: bool = True):
+        """Train level 1 models of the ensemble.
+
+        For each model in self.models, either search for optimal hyperparameters using Optuna
+        or load existing best parameters, then train the model and store predictions in
+        meta_train_df and meta_test_df.
+
+        Args:
+                search: If True, perform hyperparameter search. If False, load existing best parameters.
+        """
         log.info("Training level 1 models...")
 
         for model in self.models:
             log.info(f"{Config.MODELS[model]}:")
 
-            log.info("\tFinding optimal hyperparameters using Optuna...")
-            params = hyperparameter_search(
-                X_train=self.X_train,
-                X_test=self.X_test,
-                y_train=self.y_train,
-                y_test=self.y_test,
-                model=model,
-            )
-
-            log.info(f"\n\tBest params: {params}\n")
+            if search:
+                log.info("\tFinding optimal hyperparameters using Optuna...")
+                params = hyperparameter_search(
+                    X_train=self.X_train,
+                    X_test=self.X_test,
+                    y_train=self.y_train,
+                    y_test=self.y_test,
+                    model=model,
+                )
+                log.info(f"\n\tBest params: {params}\n")
+            else:
+                study = optuna.load_study(
+                    storage=Config.OPTUNA_STORAGE,
+                    study_name=self.level_one_study_names[model],
+                )
+                params = study.best_params
+                log.info("\tUsing existing best parameters...\n")
 
             log.info("\tTraining model with optimal parameters...\n")
-            train_preds, test_preds, acc = train(
+
+            # Store params
+            self.level_one_params[model] = params
+
+            # Train and store the model
+            klass = MODEL_MAP[model]
+            config = CONFIG_MAP[model]
+
+            params.update(config.STATIC_PARAMS)
+            clf = klass(**params)
+
+            fit_params = config.get_fit_params(
                 X_train=self.X_train,
-                X_test=self.X_test,
                 y_train=self.y_train,
-                y_test=self.y_test,
-                model=model,
+                X_val=self.X_test,
+                y_val=self.y_test,
                 params=params,
             )
 
-            log.info("\tDone!\n")
+            clf.fit(X=self.X_train, y=self.y_train, **fit_params)
+            self.level_one_models[model] = clf
+
+            # Get predictions for meta features
+            train_preds = clf.predict_proba(self.X_train)[:, 1]
+            test_preds = clf.predict_proba(self.X_test)[:, 1]
 
             self.meta_train_df[f"{model}_preds"] = train_preds
             self.meta_test_df[f"{model}_preds"] = test_preds
 
-    def fit_level_two_model(self) -> pd.DataFrame:
+    def fit_level_two_model(self, search: bool = True):
+        """Train a Logistic Regression model as level 2 model.
+
+        If search is True, perform hyperparameter search using Optuna.
+        If search is False, load existing best parameters.
+        """
         log.info("Training a Logistic Regression model as level 2 model...")
 
-        log.info("\tFinding optimal hyperparameters using Optuna...")
-        params = hyperparameter_search(
+        if search:
+            log.info("\tFinding optimal hyperparameters using Optuna...")
+            params = hyperparameter_search(
+                X_train=self.meta_train_df,
+                X_test=self.meta_test_df,
+                y_train=self.y_train,
+                y_test=self.y_test,
+                model="lr",
+                n_trials=Config.L2_N_TRIALS,
+            )
+            log.info(f"\n\tBest params: {params}\n")
+        else:
+            study = optuna.load_study(
+                storage=Config.OPTUNA_STORAGE,
+                study_name=self.level_two_study_name,
+            )
+            params = study.best_params
+            log.info("\tUsing existing best parameters...\n")
+
+        self.level_two_params = params
+
+        # Train and store the level 2 model
+        klass = MODEL_MAP["lr"]
+        config = CONFIG_MAP["lr"]
+
+        params.update(config.STATIC_PARAMS)
+        clf = klass(**params)
+
+        fit_params = config.get_fit_params(
             X_train=self.meta_train_df,
-            X_test=self.meta_test_df,
             y_train=self.y_train,
-            y_test=self.y_test,
-            model="lr",
-            n_trials=Config.L2_N_TRIALS,
-        )
-
-        log.info(f"\n\tBest params: {params}\n")
-
-        log.info("\tTraining model with optimal parameters...\n")
-
-        _, test_preds, _ = train(
-            X_train=self.meta_train_df,
-            X_test=self.meta_test_df,
-            y_train=self.y_train,
-            y_test=self.y_test,
-            model="lr",
+            X_val=self.meta_test_df,
+            y_val=self.y_test,
             params=params,
         )
 
-        log.info("\tDone!")
+        clf.fit(X=self.meta_train_df, y=self.y_train, **fit_params)
+        self.level_two_model = clf
 
+        # Get predictions
+        test_preds = clf.predict_proba(self.meta_test_df)[:, 1]
         self.meta_test_df["target"] = test_preds >= 0.5
 
         return self.meta_test_df
+
+    def predict(self, X: pd.DataFrame) -> pd.Series:
+        """Make predictions on new data using the trained ensemble.
+
+        Args:
+            X: DataFrame with features to predict on
+
+        Returns:
+            Series with binary predictions
+        """
+        if not self.level_one_models or not self.level_two_model:
+            raise RuntimeError(
+                "Models have not been trained. Call fit_level_one_models and fit_level_two_model first."
+            )
+
+        # Get meta-features from level 1 models
+        meta_features = self.get_meta_features(X)
+
+        # Use trained level 2 model (with its learned coefficients) to make predictions
+        predictions = self.level_two_model.predict(meta_features)
+
+        return pd.Series(predictions, index=X.index)
+
+    def get_meta_features(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Get meta features for new data using the trained ensemble.
+
+        Args:
+            X: DataFrame with features to predict on
+
+        Returns:
+            DataFrame with meta features
+        """
+        if not self.level_one_models:
+            raise RuntimeError(
+                "Level 1 models have not been trained. Call fit_level_one_models first."
+            )
+
+        meta_features = pd.DataFrame(index=X.index)
+        for model_name, model in self.level_one_models.items():
+            meta_features[f"{model_name}_preds"] = model.predict_proba(X)[:, 1]
+
+        return meta_features
+
+    def predict_proba(self, X: pd.DataFrame) -> np.ndarray:
+        """Make probability predictions on new data using the trained ensemble.
+
+        Args:
+            X: DataFrame with features to predict on
+
+        Returns:
+            Array of probability predictions
+        """
+        if not self.level_one_models or not self.level_two_model:
+            raise RuntimeError(
+                "Models have not been trained. Call fit_level_one_models and fit_level_two_model first."
+            )
+
+        # Get level 1 predictions
+        meta_features = self.get_meta_features(X)
+
+        # Get level 2 predictions
+        predictions = self.level_two_model.predict_proba(meta_features)
+
+        return predictions
+
+    def get_best_params(self, model: Optional[str] = None):
+        """
+        Retrieve best parameters from study for a specific model or all models.
+
+        Args:
+                model: Optional model name. If None, returns parameters for all models.
+
+        Returns:
+                Dictionary of best parameters from study for requested model(s)
+        """
+        if model is not None:
+            # Load existing study for specific model
+            study = optuna.load_study(
+                storage=Config.OPTUNA_STORAGE,
+                study_name=self.level_one_study_names[model],
+            )
+            return study.best_params
+
+        # Load studies for all models
+        best_params = {}
+        for model_, study_name in self.level_one_study_names.items():
+            study = optuna.load_study(
+                storage=Config.OPTUNA_STORAGE, study_name=study_name
+            )
+            best_params[model_] = study.best_params
+        study = optuna.load_study(
+            storage=Config.OPTUNA_STORAGE, study_name=self.level_two_study_name
+        )
+        best_params["lr_l2"] = study.best_params
+
+        return best_params
+
+    def print_best_params(self):
+        """Print best parameters for all models in a formatted way."""
+        for model, params in self.best_params.items():
+            if model == "level2_lr":
+                log.info("\nLevel 2 (Logistic Regression) Best Parameters:")
+            else:
+                log.info(
+                    f"\nLevel 1 - {Config.MODELS.get(model, model)} Best Parameters:"
+                )
+            for param, value in params.items():
+                log.info(f"\t{param}: {value}")
 
 
 # %%
@@ -631,18 +828,23 @@ log.info(
 
 ensemble = Ensemble(X_train, X_test, y_train, y_test)
 ensemble.models
+ensemble.get_best_params()
 
 # %%
-ensemble.fit_level_one_models()
-
+ensemble.fit_level_one_models(search=False)
 ensemble.meta_train_df.head()
-
 ensemble.meta_test_df.head()
+test_predictions = ensemble.fit_level_two_model(search=False)
+# Get predictions for test data using the trained ensemble
 
-test_predictions = ensemble.fit_level_two_model()
+test_predictions = ensemble.predict(out10["test_df_winsorized"])
+test_predictions.to_csv("data/07_model_output/submission6.csv")
 
-test_predictions.head()
+log.info("\nTest Set Predictions (first 5 rows):")
+log.info(test_predictions[:5])
 
-test_predictions["target"].value_counts()
 
-# %%
+# Count disagreements between XGB and LGB predictions
+# Get predictions for first 5 rows of test data
+
+# Get level 1 predictions for each model

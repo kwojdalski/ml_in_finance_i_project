@@ -22,16 +22,6 @@ out10 = get_node_output("handle_outliers_node")
 out9 = get_node_output("transform_volret_features_node")
 
 
-# out10 = run_pipeline_node(
-#     "handle_outliers_node",
-#     {
-#         "train_df_transformed": out9["train_df_transformed"],
-#         "test_df_transformed": out9["test_df_transformed"],
-#         "params:outlier_threshold": 10,
-#         "params:outlier_method": "clip",
-#     },
-# )
-
 plot_outliers_analysis(out10["train_df_winsorized"])
 
 
@@ -53,24 +43,27 @@ X_test = out11["X_test"]
 y_train = out11["y_train"]
 y_test = out11["y_test"]
 
-# # %%
-# out10 = run_pipeline_node(
-#     "train_xgboost_node",
-#     {
-#         "X_train": X_train,
-#         "y_train": y_train,
-#         "parameters": conf_params["model_options"],
-#     },
-# )
 
 # %%
-# with open("data/06_models/xgboost_model.pkl", "rb") as f:
-#     model = pickle.load(f)
+import pickle
+
+with open("data/06_models/xgboost_model.pkl", "rb") as f:
+    model = pickle.load(f)
 
 
 # %%
-def train_xgboost(X_train, y_train, parameters: dict):
-    """Train XGBoost model using Optuna for hyperparameter optimization."""
+def train_xgboost(X_train, y_train, parameters: dict, timeout: int = 60):
+    """Train XGBoost model using Optuna for hyperparameter optimization.
+
+    Args:
+        X_train: Training features
+        y_train: Training labels
+        parameters: Dictionary of model parameters
+        timeout: Maximum optimization time in seconds, defaults to 60
+
+    Returns:
+        Trained XGBoost model with optimized hyperparameters
+    """
 
     def objective(trial, X, y):
         param = {
@@ -91,15 +84,10 @@ def train_xgboost(X_train, y_train, parameters: dict):
             "reg_lambda": trial.suggest_float("reg_lambda", 0, 0.5),
             "random_state": 42,
         }
-        # Create pruning callback for this trial
-        # pruning_callback = optuna.integration.XGBoostPruningCallback(
-        #    trial=trial, observation_key="validation_0-logloss"
-        # )
 
         model = xgb.XGBClassifier(
             **param,
             tree_method="hist",
-            # callbacks=[pruning_callback]
         )
         model.fit(
             X,
@@ -121,7 +109,7 @@ def train_xgboost(X_train, y_train, parameters: dict):
     study = optuna.create_study(
         direction="maximize",
         storage="sqlite:///db.sqlite3",  # Specify the storage URL here.
-        study_name="xgboost2",
+        study_name="ensemble_xgb",
         load_if_exists=True,
         sampler=optuna.samplers.TPESampler(seed=42),
         pruner=optuna.pruners.MedianPruner(n_warmup_steps=10),
@@ -129,7 +117,7 @@ def train_xgboost(X_train, y_train, parameters: dict):
     import time
 
     tic = time.time()
-    while time.time() - tic < 3600 * 5:  # noqa
+    while time.time() - tic < timeout:  # noqa
         study.optimize(
             lambda trial: objective(trial, X_train, y_train),
             n_trials=1,
@@ -144,7 +132,15 @@ def train_xgboost(X_train, y_train, parameters: dict):
 
 
 # %%
-model = train_xgboost(X_train, y_train, conf_params["model_options"])
+# Train model and get parameters
+model = train_xgboost(X_train, y_train, conf_params["model_options"], timeout=1)
+print("\nModel Parameters:")
+for param, value in model.get_params().items():
+    print(f"{param}: {value}")
+    # Fit model and check accuracy
+model.fit(X_train, y_train, eval_set=[(X_train, y_train)], verbose=False)
+train_accuracy = model.score(X_train, y_train)
+print(f"Training accuracy: {train_accuracy:.4f}")
 
 # %%
 run_pipeline_node(
@@ -170,7 +166,7 @@ out11 = run_pipeline_node(
 
 # %%
 out11["predictions"].index = out11["predictions"].index.astype(int)
-out11["predictions"].to_csv("data/07_model_output/submission3.csv")
+out11["predictions"].to_csv("data/07_model_output/submission5.csv")
 # Compare submissions 2 and 3
 import pandas as pd
 
@@ -189,3 +185,5 @@ print(f"Max absolute difference: {differences.abs().max().values[0]:.4f}")
 # Show correlation
 correlation = submission2.corrwith(submission3)
 print(f"Correlation between submissions: {correlation.values[0]:.4f}")
+
+# %%
