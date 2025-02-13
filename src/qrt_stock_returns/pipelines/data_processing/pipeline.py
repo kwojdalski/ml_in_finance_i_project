@@ -31,23 +31,6 @@ def create_pipeline(**kwargs) -> Pipeline:
                 name="load_data_node",
                 tags=["data_loading", "data_cleaning", "data_preprocessing"],
             ),
-            # node(
-            #     func=identify_stock_symbols,
-            #     inputs=[
-            #         "train_df",
-            #         "test_df",
-            #         "nasdaq_data",
-            #         "params:reference_date",
-            #     ],
-            #     outputs=[
-            #         "stock_id_to_symbol",
-            #         "date_id_to_date",
-            #         "train_df_with_symbols",
-            #         "test_df_with_symbols",
-            #     ],
-            #     name="identify_stock_symbols_node",
-            #     tags=["data_preprocessing", "stock_identification"],
-            # ),
             node(
                 func=preprocess_data,
                 inputs=["train_df", "test_df", "params:drop_na"],

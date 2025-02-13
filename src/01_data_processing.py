@@ -20,7 +20,7 @@
 # (up or down) of individual US stocks for the following trading day. The goal is to develop a machine learning model
 # that can provide data-driven insights to support investment decision-making.
 #
-# The model leverages a feature set including:
+# The model leverages a feature set including:i
 # - **20** days of historical price returns
 # - **20** days of trading volume data
 # - Categorical stock metadata (industry, sector, etc.)
