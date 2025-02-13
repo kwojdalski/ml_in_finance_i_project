@@ -22,7 +22,6 @@ from src.qrt_stock_returns.utils import conf_params, get_node_output, run_pipeli
 warnings.filterwarnings("ignore")
 
 # %%
-
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 log.info("Starting XGBoost")
@@ -57,6 +56,7 @@ class Config:
         # "rf": "Random Forest",
         "xgb": "XGBoost",
         "lgb": "LightGBM",
+        # "cat": "CatBoost",
     }
 
     @classmethod
@@ -224,12 +224,51 @@ class LGBConfig:
 
 
 # %%
+class CatBoostConfig:
+    DEFAULT_VALUES: dict[str, Union[int, float]] = {
+        "iterations": 100,
+        "depth": 6,
+        "learning_rate": 0.1,
+        "l2_leaf_reg": 3.0,
+        "border_count": 254,
+        "bagging_temperature": 1.0,
+        "random_strength": 1.0,
+    }
+
+    STATIC_PARAMS: dict[str, Union[str, bool, int]] = {
+        "loss_function": "Logloss",
+        "eval_metric": "Logloss",
+        "verbose": False,
+        "thread_count": Config.N_JOBS,
+        "task_type": "GPU",
+    }
+
+    USE_PRUNER: bool = True
+
+    @classmethod
+    def get_fit_params(
+        cls,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        X_val: pd.DataFrame,
+        y_val: pd.Series,
+        params: dict[str, Any],
+    ):
+        return {
+            "eval_set": [(X_val, y_val)],
+            "early_stopping_rounds": params.get("early_stopping_rounds", 20),
+            "verbose": False,
+        }
+
+
+# %%
 CONFIG_MAP: dict[str, Any] = {
     "lr": LRConfig,
     "ada": AdaConfig,
     "rf": RFConfig,
     "xgb": XGBConfig,
     "lgb": LGBConfig,
+    "cat": CatBoostConfig,
 }
 
 
@@ -239,6 +278,7 @@ MODEL_MAP: dict[str, Any] = {
     "rf": RandomForestClassifier,
     "xgb": xgb.XGBClassifier,
     "lgb": lgb.LGBMClassifier,
+    # "cat": cb.CatBoostClassifier,
 }
 
 
@@ -362,7 +402,7 @@ def rf_objective(
     params = {
         "n_estimators": trial.suggest_int("n_estimators", 1, 500),
         "max_depth": trial.suggest_int("max_depth", 1, 50),
-        "min_samples_split": trial.suggest_int("min_samples_plit", 2, 10, log=True),
+        "min_samples_split": trial.suggest_int("min_samples_split", 2, 10, log=True),
         "min_samples_leaf": trial.suggest_int("min_samples_leaf", 1, 5, log=True),
         "max_features": trial.suggest_categorical(
             "max_features", ["sqrt", "log2", None]
@@ -470,12 +510,45 @@ def lgb_objective(
     return acc
 
 
+def cat_objective(
+    trial: optuna.Trial,
+    X_train: pd.DataFrame,
+    X_test: pd.DataFrame,
+    y_train: pd.Series,
+    y_test: pd.Series,
+):
+    params = {
+        "iterations": trial.suggest_int("iterations", 100, 1000),
+        "depth": trial.suggest_int("depth", 4, 10),
+        "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
+        "l2_leaf_reg": trial.suggest_float("l2_leaf_reg", 1e-8, 10.0, log=True),
+        "border_count": trial.suggest_int("border_count", 32, 255),
+        "bagging_temperature": trial.suggest_float("bagging_temperature", 0.0, 1.0),
+        "random_strength": trial.suggest_float("random_strength", 1e-8, 10.0, log=True),
+        "early_stopping_rounds": trial.suggest_int("early_stopping_rounds", 10, 50),
+    }
+
+    params["callbacks"] = [optuna.integration.CatBoostPruningCallback(trial, "Logloss")]
+
+    _, _, acc = train(
+        X_train=X_train,
+        X_test=X_test,
+        y_train=y_train,
+        y_test=y_test,
+        model="cat",
+        params=params,
+        verbose=False,
+    )
+    return acc
+
+
 OBJECTIVE_MAP: dict[str, Any] = {
     "lr": lr_objective,
     "ada": adaboost_objective,
     "rf": rf_objective,
     "xgb": xgb_objective,
     "lgb": lgb_objective,
+    "cat": cat_objective,
 }
 
 
@@ -487,8 +560,8 @@ def hyperparameter_search(  # noqa
     y_test: pd.Series,
     model: str,
     n_trials: int = Config.L1_N_TRIALS,
+    study_name: Optional[str] = None,
 ):
-    # Check if function is being called from parent frame
     frame = inspect.currentframe()
     if frame is not None:
         caller = frame.f_back
@@ -499,10 +572,9 @@ def hyperparameter_search(  # noqa
                 raise RuntimeError(
                     "This function should only be called from fit_level_one_models or fit_level_two_model"
                 )
-            if caller_name == "fit_level_two_model":
-                study_name = self.level_two_study_name
-            else:
-                study_name = f"ensemble_{model}"
+
+            if study_name is None:
+                raise ValueError("study_name cannot be None")
 
     v = optuna.logging.get_verbosity()
     optuna.logging.set_verbosity(optuna.logging.WARNING)
@@ -597,6 +669,7 @@ class Ensemble:
                     y_train=self.y_train,
                     y_test=self.y_test,
                     model=model,
+                    study_name=self.level_one_study_names[model],
                 )
                 log.info(f"\n\tBest params: {params}\n")
             else:
@@ -654,6 +727,7 @@ class Ensemble:
                 y_test=self.y_test,
                 model="lr",
                 n_trials=Config.L2_N_TRIALS,
+                study_name=self.level_two_study_name,
             )
             log.info(f"\n\tBest params: {params}\n")
         else:
@@ -788,20 +862,21 @@ class Ensemble:
 
     def print_best_params(self):
         """Print best parameters for all models in a formatted way."""
-        for model, params in self.best_params.items():
-            if model == "level2_lr":
-                log.info("\nLevel 2 (Logistic Regression) Best Parameters:")
-            else:
-                log.info(
-                    f"\nLevel 1 - {Config.MODELS.get(model, model)} Best Parameters:"
-                )
+        # Print level 1 model parameters
+        for model, params in self.level_one_params.items():
+            log.info(f"\nLevel 1 - {Config.MODELS.get(model, model)} Best Parameters:")
             for param, value in params.items():
+                log.info(f"\t{param}: {value}")
+
+        # Print level 2 model parameters if they exist
+        if self.level_two_params:
+            log.info("\nLevel 2 (Logistic Regression) Best Parameters:")
+            for param, value in self.level_two_params.items():
                 log.info(f"\t{param}: {value}")
 
 
 # %%
 out10 = get_node_output("handle_outliers_node")
-
 
 # %% [markdown]
 # ## Split Data into Training and Test Sets

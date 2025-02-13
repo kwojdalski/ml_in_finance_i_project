@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Dict, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -15,6 +16,8 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from src.qrt_stock_returns.pipelines.data_processing.ta_indicators import (
     calculate_all_ta_indicators,
 )
+
+from .stock_identification import identify_stocks
 
 conf_loader = OmegaConfigLoader(".", base_env="", default_run_env="")
 # Read the configuration file
@@ -677,3 +680,41 @@ def transform_volret_features(
         test_df[volume_cols] = pt.transform(test_df[volume_cols])
 
     return train_df, test_df
+
+
+def identify_stock_symbols(
+    train_df: pd.DataFrame,
+    test_df: pd.DataFrame,
+    nasdaq_data: pd.DataFrame,
+    reference_date: Optional[str] = None,
+) -> Tuple[Dict[int, str], Dict[int, str], pd.DataFrame, pd.DataFrame]:
+    """
+    Identify stock symbols from anonymous stock IDs and add them to the dataframes.
+
+    Args:
+        train_df: Training data DataFrame
+        test_df: Test data DataFrame
+        nasdaq_data: NASDAQ price data
+        reference_date: Optional reference date for alignment
+
+    Returns:
+        Tuple containing:
+        - stock_id_to_symbol mapping
+        - date_id_to_date mapping
+        - Updated training DataFrame with stock symbols
+        - Updated test DataFrame with stock symbols
+    """
+    # Combine train and test data for identification
+    combined_df = pd.concat([train_df, test_df], axis=0)
+
+    # Identify stocks
+    stock_id_to_symbol, date_id_to_date = identify_stocks(
+        combined_df, nasdaq_data, reference_date
+    )
+
+    # Add symbol and date columns to dataframes
+    for df in [train_df, test_df]:
+        df["symbol"] = df["stock_id"].map(stock_id_to_symbol)
+        df["date"] = df["date_id"].map(date_id_to_date)
+
+    return stock_id_to_symbol, date_id_to_date, train_df, test_df

@@ -1,5 +1,6 @@
 # %%
 import logging
+import pickle
 
 import optuna
 import xgboost as xgb
@@ -11,6 +12,7 @@ from src.qrt_stock_returns.utils import conf_params, get_node_output, run_pipeli
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 log.info("Starting XGBoost")
+
 
 # %% [markdown]
 # ### Loading Up Kedro Config
@@ -45,7 +47,7 @@ y_test = out11["y_test"]
 
 
 # %%
-import pickle
+
 
 with open("data/06_models/xgboost_model.pkl", "rb") as f:
     model = pickle.load(f)
